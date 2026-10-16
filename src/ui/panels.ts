@@ -13,8 +13,9 @@ import { store } from '../game/store';
 import { icon } from '../render/sprites';
 import { esc, fmt, fmtRate, fmtTime } from './format';
 import { prefs } from './prefs';
+import { SKILLS, SKILL_IDS, TREE_MAX } from '../data/skills';
 import type { SkillId } from '../data/skills';
-import { abilitySlots, knowsAbility, rank } from '../game/skills';
+import { abilitySlots, knowsAbility, rank, skillLevel, treePoints } from '../game/skills';
 
 export interface UIState {
   tab: string | null;
@@ -29,6 +30,7 @@ export interface UIState {
   exportText: string;
   skillTree: SkillId | 'run';
   skillNode: string;
+  showBonuses: boolean;
   respec: boolean; // reset skill trees on the next prestige
 }
 
@@ -216,7 +218,7 @@ export function divinePanel(s: GameState, d: Derived) {
     <div class="kv"><span>Earned on prestige</span><span class="grow"></span><b class="good">+${fmt(pend)}</b></div>
     <div class="sub">Grows with depth and Expedition zones. Guardians defeated ×${Math.pow(1.25, s.run.guardians.length).toFixed(2)}, Shrines ×${(1 + d.floors.shrine * 0.15).toFixed(2)}.</div>
     <div class="center">${btn('Begin a New Expedition', 'prestigeOpen', '', canPrestige(s, d), 'epic big')}</div>
-    ${canPrestige(s, d) ? '' : '<div class="sub center">Reach depth 8 to prestige.</div>'}
+    ${canPrestige(s, d) ? '' : `<div class="sub center">🔒 Defeat ${GUARDIANS[0].name} this run to prestige.</div>`}
     <p class="sub">Prestiging resets your colony, mine, gear and Expedition. You keep Favor, the Divine Tree, achievements, your collection and the relics in your Reliquary.</p>
     <h3>Divine Tree</h3>${tree}
     <h3>Your Patrons</h3>
@@ -306,7 +308,12 @@ export function settingsPanel(s: GameState, d: Derived, ui: UIState) {
     <div class="wrap">${[1, 10, 100, 1000].map((n) => btn('×' + n, 'speed', n, true, store.speed === n ? 'on small' : 'small')).join('')}</div>
     <div class="wrap">${btn('+1K resources', 'dev', 'res', true, 'small')}${btn('+10 colonists', 'dev', 'pop', true, 'small')}${btn('+5 depth', 'dev', 'depth', true, 'small')}
       ${btn('Beat guardian', 'dev', 'guardian', true, 'small')}${btn('+5 zones', 'dev', 'zones', true, 'small')}${btn('+50 Favor', 'dev', 'favor', true, 'small')}
-      ${btn('All research', 'dev', 'research', true, 'small')}${btn('Simulate 1h away', 'dev', 'away', true, 'small')}</div>`;
+      ${btn('All research', 'dev', 'research', true, 'small')}${btn('Simulate 1h away', 'dev', 'away', true, 'small')}</div>
+    <h3>Developer: skills</h3>
+    ${SKILL_IDS.map((id) => `<div class="row"><div class="grow"><b>${SKILLS[id].icon} ${SKILLS[id].name}</b> <span class="num">Lv ${skillLevel(s, id)}</span>
+      <div class="sub">${treePoints(s, id)} of ${TREE_MAX[id]} points</div></div>
+      <div class="wrap">${['-5', '+1', '+5', '+10', '99', '1'].map((v) => btn(v === '99' ? 'Max' : v === '1' ? 'Reset' : v, 'devSkill', `${id}:${v}`, true, 'small')).join('')}</div></div>`).join('')}
+    <div class="wrap">${btn('Free tree respec', 'dev', 'respec', true, 'small')}${btn('+5 run perk points', 'dev', 'perks', true, 'small')}${btn('All skills 99', 'dev', 'allSkills', true, 'small')}</div>`;
 
   return `<h3>Save Slots</h3>${slots}
     <div class="wrap">${btn('Save now', 'saveNow')}${btn('Export save', 'export')}${btn('Import save', 'import')}${hasBackup(store.slot) ? btn('Restore backup', 'restoreBackup', '', true, 'small') : ''}</div>

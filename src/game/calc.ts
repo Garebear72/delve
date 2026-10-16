@@ -227,4 +227,5 @@ export function pendingFavor(s: GameState, d: Derived): number {
   const raw = Math.pow(r.depth, 1.4) / 8 + Math.pow(r.maxZone, 1.7) / 3;
   return Math.floor(raw * d.favorMult);
 }
-export const canPrestige = (s: GameState, d: Derived) => s.run.depth >= 8 && pendingFavor(s, d) >= 1;
+/** You can only prestige once this run's first guardian (The Very Large Worm) has been defeated. */
+export const canPrestige = (s: GameState, d: Derived) => s.run.guardians.includes(0) && pendingFavor(s, d) >= 1;

@@ -212,6 +212,8 @@ input[type=file] { margin: 8px 0; color: var(--sub); font: inherit; font-size: 1
 .nc-head { display: flex; align-items: center; gap: 8px; }
 .nc-icon { font-size: 26px; }
 .row.dim { opacity: .7; }
+.bonusbtn { width: 100%; text-align: left; margin: 4px 0; }
+.bonuslist { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; margin-bottom: 6px; font-size: 13px; }
 
 /* toasts */
 #toasts { position: absolute; top: 80px; left: 8px; right: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 9; pointer-events: none; align-items: center; }

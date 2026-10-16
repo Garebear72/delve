@@ -29,6 +29,29 @@ export const STATS: Stat[] = [
   'offline', 'offlineXp', 'xp', 'idleJobs',
 ];
 
+/** How each stat reads in the bonuses summary. 'less' stats are reductions (shown as −X%). */
+export const STAT_INFO: Record<Stat, { label: string; unit: 'pct' | 'less' | 'flat' | 'ms' | 'hrs' | 'mult' | 'flag' }> = {
+  dmg: { label: 'squad damage', unit: 'pct' }, hp: { label: 'squad HP', unit: 'pct' },
+  crit: { label: 'critical hit chance', unit: 'pct' }, critDmg: { label: 'critical damage', unit: 'pct' },
+  speed: { label: 'attack speed', unit: 'pct' }, killHeal: { label: 'max HP healed per kill', unit: 'pct' },
+  block: { label: 'block', unit: 'pct' }, regen: { label: 'max HP regenerated per second', unit: 'pct' },
+  regroup: { label: 'regroup speed', unit: 'pct' }, slots: { label: 'ability slots', unit: 'flat' },
+  autoCast: { label: 'Abilities cast themselves', unit: 'flag' },
+  bossDmg: { label: 'damage vs bosses and guardians', unit: 'pct' }, loot: { label: 'item and relic drop chance', unit: 'pct' },
+  gearCost: { label: 'gear cost', unit: 'less' }, squadCap: { label: 'squad size', unit: 'flat' },
+  dig: { label: 'digging', unit: 'pct' }, stone: { label: 'stone', unit: 'pct' }, ore: { label: 'copper and iron', unit: 'pct' },
+  storage: { label: 'storage', unit: 'pct' }, food: { label: 'mushrooms', unit: 'pct' }, pop: { label: 'max colonists', unit: 'flat' },
+  growth: { label: 'colony growth', unit: 'pct' }, floorCost: { label: 'floor cost', unit: 'less' }, gold: { label: 'gold', unit: 'pct' },
+  know: { label: 'knowledge', unit: 'pct' }, jobs: { label: 'output from all jobs', unit: 'pct' },
+  eat: { label: 'mushrooms eaten', unit: 'less' }, birthCost: { label: 'mushrooms per new dwarf', unit: 'less' },
+  researchCost: { label: 'research cost', unit: 'less' }, favor: { label: 'Divine Favor', unit: 'pct' },
+  tap: { label: 'tap power', unit: 'pct' }, tapStone: { label: 'stone from taps', unit: 'pct' },
+  combo: { label: 'maximum combo bonus', unit: 'pct' }, comboWindow: { label: 'combo window', unit: 'ms' },
+  tapCrit: { label: 'tap crit chance', unit: 'pct' }, tapCritDmg: { label: 'tap crit power', unit: 'mult' },
+  offline: { label: 'offline progress', unit: 'hrs' }, offlineXp: { label: 'offline XP', unit: 'pct' },
+  xp: { label: 'XP in every skill', unit: 'pct' }, idleJobs: { label: 'job output while left alone', unit: 'pct' },
+};
+
 export type NodeKind = 'small' | 'notable' | 'keystone' | 'ability' | 'choice';
 export interface NodeDef {
   id: string;

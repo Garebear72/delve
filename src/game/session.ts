@@ -4,7 +4,8 @@ import { div } from './calc';
 import { setQuiet, toast } from './events';
 import { loadSlot, saveSlot, setActiveSlot } from './save';
 import { catchUp } from './sim';
-import { bonuses, reconcileTrees } from './skills';
+import { bonuses, levelOf, reconcileTrees } from './skills';
+import { SKILL_IDS, SkillId } from '../data/skills';
 import { GameState, newGame } from './state';
 import { refresh, store } from './store';
 
@@ -16,6 +17,7 @@ export interface OfflineReport {
   zones: number;
   kills: number;
   pop: number;
+  skills: { id: SkillId; xp: number; from: number; to: number }[];
 }
 
 export function saveNow(): boolean {
@@ -31,7 +33,7 @@ export function offlineCap(s: GameState) {
 export function applyOffline(seconds: number): OfflineReport {
   const s = store.state;
   const sim = Math.min(seconds, offlineCap(s));
-  const before = { res: { ...s.run.res }, depth: s.run.depth, zone: s.run.maxZone, kills: s.meta.lifetime.kills ?? 0, pop: s.run.pop };
+  const before = { res: { ...s.run.res }, depth: s.run.depth, zone: s.run.maxZone, kills: s.meta.lifetime.kills ?? 0, pop: s.run.pop, skills: { ...s.meta.skills } };
   setQuiet(true);
   try { catchUp(s, sim); } finally { setQuiet(false); }
   refresh();
@@ -44,6 +46,10 @@ export function applyOffline(seconds: number): OfflineReport {
     away: seconds, simulated: sim, res,
     depth: s.run.depth - before.depth, zones: s.run.maxZone - before.zone,
     kills: (s.meta.lifetime.kills ?? 0) - before.kills, pop: s.run.pop - before.pop,
+    skills: SKILL_IDS.map((id) => ({
+      id, xp: (s.meta.skills[id] ?? 0) - (before.skills[id] ?? 0),
+      from: levelOf(before.skills[id] ?? 0), to: levelOf(s.meta.skills[id] ?? 0),
+    })).filter((x) => x.xp >= 1),
   };
 }
 

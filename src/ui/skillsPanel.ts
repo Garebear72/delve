@@ -1,13 +1,39 @@
 // The Skills tab: skill levels, the node map for each tree, and run perks.
-import { NODES, NODE_BY_ID, NodeKind, PERKS, SKILLS, SKILL_IDS, SkillId, TIER_REQ, TREE_MAX } from '../data/skills';
+import { NODES, NODE_BY_ID, NodeKind, PERKS, SKILLS, SKILL_IDS, SkillId, Stat, STATS, STAT_INFO, TIER_REQ, TREE_MAX } from '../data/skills';
 import {
-  learnState, levelOf, nextPointLevel, perkFree, perkRespecCost, perkSpent, rank, skillLevel, skillXp,
+  bonuses, learnState, levelOf, nextPointLevel, perkFree, perkRespecCost, perkSpent, rank, skillLevel, skillXp,
   treeFree, treePoints, treeSpent, xpForLevel,
 } from '../game/skills';
 import type { GameState } from '../game/state';
 import { fmt } from './format';
 
-export interface SkillsUI { skillTree: SkillId | 'run'; skillNode: string }
+export interface SkillsUI { skillTree: SkillId | 'run'; skillNode: string; showBonuses: boolean }
+
+const round = (v: number) => Math.round(v * 1000) / 1000;
+/** "+15% squad damage", "−8% gear cost", "+2 squad size", "+0.5s combo window"… */
+export function fmtStat(stat: Stat, v: number) {
+  const { label, unit } = STAT_INFO[stat];
+  const sign = v < 0 ? '−' : '+';
+  const a = Math.abs(v);
+  switch (unit) {
+    case 'pct': return `${sign}${round(a * 100)}% ${label}`;
+    case 'less': return `${v > 0 ? '−' : '+'}${round(a * 100)}% ${label}`;
+    case 'flat': return `${sign}${round(a)} ${label}`;
+    case 'ms': return `${sign}${round(a / 1000)}s ${label}`;
+    case 'hrs': return `${sign}${round(a)}h ${label}`;
+    case 'mult': return `${sign}${round(a)}× ${label}`;
+    case 'flag': return label;
+  }
+}
+const fmtEffects = (effects: Partial<Record<Stat, number>>, times = 1) =>
+  Object.entries(effects).map(([k, v]) => fmtStat(k as Stat, (v ?? 0) * times)).join(', ');
+
+function bonusSummary(s: GameState, open: boolean) {
+  const b = bonuses(s);
+  const lines = STATS.filter((k) => Math.abs(b[k]) > 1e-9).map((k) => `<div class="kv"><span>${fmtStat(k, b[k])}</span></div>`);
+  return `<button class="btn small bonusbtn" data-act="toggleBonuses">${open ? '▾' : '▸'} Active bonuses from skills and perks (${lines.length})</button>
+    ${open ? `<div class="bonuslist">${lines.join('') || '<div class="sub">Nothing yet. Learn some nodes!</div>'}</div>` : ''}`;
+}
 
 const KIND: Record<NodeKind, string> = { small: 'Passive', notable: 'Notable', keystone: 'Keystone', ability: 'Ability', choice: 'Choice' };
 
@@ -44,6 +70,7 @@ export function skillsPanel(s: GameState, ui: SkillsUI) {
     <h3>Skills</h3>
     <div class="skgrid">${chips}</div>
     ${detail}
+    ${bonusSummary(s, ui.showBonuses)}
     ${ui.skillTree === 'run' ? perksView(s) : treeView(s, ui.skillTree, ui.skillNode)}
     <p class="sub">Skills level up by doing. Points for each tree are spread evenly from level 1 to 99; level 99 is enough to master the whole tree.</p>`;
 }
@@ -89,6 +116,7 @@ function treeView(s: GameState, tree: SkillId, selected: string) {
         <div class="sub">${KIND[sel.kind]}${sel.max > 1 ? ` · rank ${r}/${sel.max}` : r ? ' · learned' : ''}</div></div>
         <button class="btn small" data-act="skillNode" data-arg="">✕</button></div>
       <div>${sel.desc}</div>
+      ${sel.max > 1 && Object.keys(sel.effects).length ? `<div class="sub">${r ? `Now: ${fmtEffects(sel.effects, r)}` : ''}${r && r < sel.max ? ' · ' : ''}${r < sel.max ? `Next rank: ${fmtEffects(sel.effects)}` : ''}</div>` : ''}
       ${st.ok ? `<div class="center"><button class="btn epic" data-act="learn" data-arg="${sel.id}">Learn (${pool})</button></div>`
         : st.reason ? `<div class="sub neg">${st.reason}</div>` : ''}
     </div>`;

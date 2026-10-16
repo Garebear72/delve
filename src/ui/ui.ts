@@ -16,7 +16,8 @@ import { fmt, fmtRate, fmtTime } from './format';
 import { prefs, savePrefs } from './prefs';
 import { skillsPanel, unspentPoints } from './skillsPanel';
 import type { SkillId } from '../data/skills';
-import { buyPerk, learn, respecPerks, toggleEquip } from '../game/skills';
+import { buyPerk, learn, reconcileTrees, respecPerks, respecTrees, skillLevel, toggleEquip, xpForLevel } from '../game/skills';
+import { SKILLS, SKILL_IDS } from '../data/skills';
 import { markInput } from '../game/input';
 import {
   battlePanel, bookPanel, buildPanel, colonyPanel, divinePanel, floorPanel, importModal, prestigeModal, settingsPanel, UIState,
@@ -24,7 +25,7 @@ import {
 
 export const ui: UIState = {
   tab: null, slot: 0, bookTab: 'ach', bulk: 1, armDemolish: -1, keep: [], nextRace: 'dwarf', nextGod: 'forge',
-  pip: true, exportText: '', skillTree: 'combat', skillNode: '', respec: false,
+  pip: true, exportText: '', skillTree: 'combat', skillNode: '', showBonuses: false, respec: false,
 };
 let modal: string | null = null;
 
@@ -166,8 +167,10 @@ export function showOffline(rep: OfflineReport) {
     rep.kills ? `<div class="kv"><span>Monsters defeated</span><span class="grow"></span><b>${fmt(rep.kills)}</b></div>` : '',
     rep.pop >= 1 ? `<div class="kv"><span>New colonists</span><span class="grow"></span><b class="good">+${Math.floor(rep.pop)}</b></div>` : '',
   ].join('');
+  const skills = rep.skills.map((x) => `<div class="kv"><span>${SKILLS[x.id].icon} ${SKILLS[x.id].name}</span><span class="grow"></span>
+    <span class="sub">+${fmt(x.xp)} XP</span>${x.to > x.from ? ` <b class="good">Lv ${x.from} → ${x.to}</b>` : ''}</div>`).join('');
   const capped = rep.simulated < rep.away ? `<p class="sub">Only ${fmtTime(rep.simulated)} counted (offline limit). The Long Memory blessing raises it.</p>` : '';
-  showModal('offline', `<h2>Welcome back, Digging God!</h2><p>You were away for <b>${fmtTime(rep.away)}</b>. Your colony kept busy:</p>${lines}${extra}${capped}
+  showModal('offline', `<h2>Welcome back, Digging God!</h2><p>You were away for <b>${fmtTime(rep.away)}</b>. Your colony kept busy:</p>${lines}${extra}${skills ? `<h3>Skills</h3>${skills}` : ''}${capped}
     <div class="center"><button class="btn epic" data-act="closeModal">Lovely</button></div>`);
 }
 
@@ -282,6 +285,7 @@ function act(name: string, arg: string) {
     case 'skillTree': ui.skillTree = arg as SkillId | 'run'; ui.skillNode = ''; break;
     case 'skillNode': ui.skillNode = ui.skillNode === arg ? '' : arg; break;
     case 'learn': learn(s, arg); break;
+    case 'toggleBonuses': ui.showBonuses = !ui.showBonuses; break;
     case 'perk': buyPerk(s, arg); break;
     case 'perkRespec': respecPerks(s); break;
     case 'equip': toggleEquip(s, arg as AbilityId); break;
@@ -295,6 +299,16 @@ function act(name: string, arg: string) {
     case 'devToggle': store.dev = !store.dev; if (!store.dev) store.speed = 1; break;
     case 'speed': store.speed = Number(arg); break;
     case 'dev': devAction(arg); break;
+    case 'devSkill': {
+      // "combat:+5" adjusts by levels; "combat:99" / "combat:1" sets the level.
+      const [skill, v] = arg.split(':') as [SkillId, string];
+      const cur = skillLevel(s, skill);
+      const next = Math.max(1, Math.min(99, v.startsWith('+') || v.startsWith('-') ? cur + Number(v) : Number(v)));
+      s.meta.skills[skill] = xpForLevel(next);
+      reconcileTrees(s);
+      toast(`${SKILLS[skill].name} set to level ${next}`, 'good');
+      break;
+    }
   }
   refresh();
   render();
@@ -318,6 +332,9 @@ function devAction(what: string) {
   if (what === 'favor') { s.meta.favor += 50; }
   if (what === 'research') { for (const x of RESEARCH) if (!r.research.includes(x.id)) r.research.push(x.id); }
   if (what === 'away') { showOffline(applyOffline(3600)); }
+  if (what === 'respec') { respecTrees(s); toast('Skill trees refunded.', 'good'); }
+  if (what === 'perks') { r.perkPoints += 5; }
+  if (what === 'allSkills') { for (const k of SKILL_IDS) s.meta.skills[k] = xpForLevel(99); }
   add(s, 'devUsed', 1);
 }
 
