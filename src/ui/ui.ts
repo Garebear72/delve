@@ -382,9 +382,11 @@ function renderTabs() {
 function renderHint() {
   const s = store.state, d = store.d, r = s.run;
   let hint = '';
-  if (r.inBreak) hint = '☕ Union Break! Production paused.';
+  if (d.hungry) hint = '🍄 Your dwarves are starving! Assign Farmers in Colony.';
+  else if (r.inBreak) hint = '☕ Union Break! Production paused.';
   else if (d.blocked >= 0) hint = 'A guardian blocks the way down. Fight it in the Battle tab.';
   else if (r.depth === 0 && r.jobs.miner === 0) hint = 'Tap the dig front to dig, or assign Miners in Colony.';
+  else if (r.jobs.farmer === 0 && d.rates.food < 0) hint = 'Your dwarves need food. Assign a Farmer in Colony.';
   else if (d.idle > 0 && r.jobs.miner + r.jobs.farmer === 0) hint = 'You have idle colonists. Give them jobs in Colony.';
   else if (r.depth >= 1 && !r.floors.some(Boolean)) hint = 'Tap an empty level to build a floor on it.';
   else if (d.rates.food < 0 && r.res.food < 20) hint = 'Mushrooms are running low! Add Farmers.';

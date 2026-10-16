@@ -1,7 +1,7 @@
 // The simulation: advances the game by dt seconds.
 import {
   ACHIEVEMENTS, BIOMES, BOSS_RELICS, CLASSES, CLASS_IDS, CRIT_CHANCE, ENEMIES, FLOORS, FLOOR_IDS, GUARDIANS, HEAL_PULSE,
-  ITEMS, MAX_VOLLEYS, RELICS, RES_IDS, ZONE_CELLS,
+  FOOD_PER_BIRTH, ITEMS, KILL_HEAL, MAX_VOLLEYS, RELICS, RES_IDS, STARVE_INTERVAL, ZONE_CELLS,
 } from '../data/defs';
 import { derive, Derived, enemyFor, enemyStats, goldMult, levelHp, squadStats } from './calc';
 import { emit, toast } from './events';
@@ -51,7 +51,26 @@ export function tick(s: GameState, d: Derived, dt: number) {
   }
 
   // Growth (only while fed)
-  if (r.pop < d.maxPop && r.res.food > 0) r.pop = Math.min(d.maxPop, r.pop + d.growth * dt);
+  if (r.pop < d.maxPop && r.res.food > 0) {
+    const born = Math.min(d.maxPop - r.pop, d.growth * dt, r.res.food / FOOD_PER_BIRTH);
+    r.pop += born;
+    r.res.food -= born * FOOD_PER_BIRTH;
+  }
+
+  // Starvation: every so often a hungry colonist wanders off (idle ones first). The last two always stay.
+  if (d.hungry && r.pop >= 3) {
+    r.starve += dt;
+    if (r.starve >= STARVE_INTERVAL) {
+      r.starve = 0;
+      if (d.idle < 1) {
+        const job = (['scholar', 'miner', 'farmer'] as const).find((j) => r.jobs[j] > 0);
+        if (job) r.jobs[job]--;
+      }
+      r.pop = Math.max(0, r.pop - 1);
+      add(s, 'starved', 1);
+      toast('A hungry dwarf wandered off looking for snacks. Get more mushrooms growing!', 'bad');
+    }
+  } else r.starve = 0;
 
   // Digging
   if (d.blocked < 0 && d.digPower > 0) {
@@ -233,7 +252,13 @@ function onKill(s: GameState) {
     } else if (c.zone > r.maxZone) { r.maxZone = c.zone; }
     c.cell = 0;
     c.squadHp = squadStats(s).maxHp;
-  } else c.cell++;
+  } else {
+    c.cell++;
+    // Each victory patches the squad up a bit.
+    const max = squadStats(s).maxHp;
+    const amt = Math.min(max - c.squadHp, max * KILL_HEAL);
+    if (amt > 0) { c.squadHp += amt; emit('heal', { amt, cleric: false }); }
+  }
   c.enemyHp = 0;
 }
 

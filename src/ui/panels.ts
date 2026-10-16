@@ -1,6 +1,6 @@
 // HTML for each sheet panel. Buttons use data-act / data-arg and are handled in ui.ts.
 import {
-  ACHIEVEMENTS, ACH_BONUS, ADJACENCY, CLASSES, CLASS_IDS, DIVINE, ENEMIES, FLOORS, FLOOR_IDS, GEAR, GODS, GUARDIANS,
+  ACHIEVEMENTS, ACH_BONUS, ADJACENCY, CLASSES, CLASS_IDS, DIVINE, ENEMIES, FLOORS, FLOOR_IDS, FOOD_PER_COLONIST, GEAR, GODS, GUARDIANS,
   ITEMS, JOBS, JOB_IDS, RACES, RELICS, RESEARCH, RESOURCES, RES_IDS, ResId,
 } from '../data/defs';
 import {
@@ -71,7 +71,9 @@ export function colonyPanel(s: GameState, d: Derived, ui: UIState) {
     <div class="kv"><span>Idle</span><span class="grow"></span><b>${d.idle}</b></div>
     ${d.reserved ? `<div class="kv"><span>Waiting to join the squad</span><span class="grow"></span><b>${d.reserved}</b></div>` : ''}
     <div class="kv"><span>Growth</span><span class="grow"></span><span>${r.pop >= d.maxPop ? 'Full (build Bunkhouses)' : r.res.food <= 0 ? '<span class="neg">Stopped: no food!</span>' : fmt(d.growth) + '/s'}</span></div>
-    ${starving ? '<div class="warn">Mushrooms are running out. Add Farmers or build a Mushroom Farm.</div>' : ''}
+    ${d.hungry ? '<div class="warn"><b>Your dwarves are starving!</b> Miners and Scholars work at half speed, and hungry dwarves wander off. Add Farmers or build a Mushroom Farm.</div>'
+      : starving ? '<div class="warn">Mushrooms are running out. Add Farmers or build a Mushroom Farm.</div>' : ''}
+    <div class="sub">Each dwarf eats ${FOOD_PER_COLONIST} mushrooms/s. A Farmer grows ${fmt(d.jobRate.farmer)}/s.</div>
     <h3>Jobs <span class="bulk">${bulk}</span></h3>
     ${jobs}
     <h3>Resources</h3>${resRows}

@@ -1,6 +1,6 @@
 // Derived numbers: everything computed from state (rates, caps, squad stats).
 import {
-  ACH_BONUS, ADJACENCY, BIOMES, CLASSES, CLASS_IDS, ENEMIES, FLOOR_IDS, FloorId, GEAR, GUARDIANS, JobId,
+  ACH_BONUS, ADJACENCY, BIOMES, CLASSES, CLASS_IDS, ENEMIES, FLOOR_IDS, FloorId, FOOD_PER_COLONIST, GEAR, GROWTH_BASE, GROWTH_PER_POP, GUARDIANS, JobId,
   RELICS, RelicEffect, RES_IDS, ResId, ZONE_CELLS,
 } from '../data/defs';
 import type { GameState } from './state';
@@ -20,7 +20,7 @@ export function blockingGuardian(s: GameState): number {
   return -1;
 }
 
-export const levelHp = (level: number) => 8 * Math.pow(1.14, level);
+export const levelHp = (level: number) => 200 * Math.pow(1.2, level);
 export const div = (s: GameState, id: string) => s.meta.divine[id] ?? 0;
 
 export function relicBonus(s: GameState, effect: RelicEffect): number {
@@ -64,6 +64,7 @@ export interface Derived {
   gearCostMult: number;
   favorMult: number;
   unionBreak: boolean;
+  hungry: boolean;
   blocked: number;
 }
 
@@ -77,24 +78,31 @@ export function derive(s: GameState): Derived {
   const unionBreak = goblin && r.time % 120 >= 100;
   const jobMult = (unionBreak ? 0 : 1) * (goblin ? 1.4 : 1) * globalMult;
 
-  const mineMult = jobMult * (1 + 0.25 * div(s, 'picks')) * (r.research.includes('sharpPicks') ? 1.5 : 1)
-    * (r.research.includes('deepPicks') ? 2 : 1) * (r.race === 'dwarf' ? 1.25 : 1);
   const foodMult = jobMult * (1 + floors.farm * 0.5) * (1 + 0.25 * div(s, 'harvest'))
     * (r.research.includes('compost') ? 1.5 : 1) * (r.god === 'snorg' ? 1.5 : 1) * (1 + relicBonus(s, 'food'));
-  const knowMult = jobMult * (1 + floors.library * 0.5) * (1 + 0.25 * div(s, 'wisdom'))
+  const farmed = r.jobs.farmer * 0.5 * foodMult;
+  const eaten = r.pop * FOOD_PER_COLONIST;
+  // Out of mushrooms and not growing enough: miners and scholars work at half speed.
+  const hungry = r.res.food <= 0.01 && farmed < eaten;
+  const hunger = hungry ? 0.5 : 1;
+
+  const mineMult = jobMult * hunger * (1 + 0.25 * div(s, 'picks')) * (r.research.includes('sharpPicks') ? 1.5 : 1)
+    * (r.research.includes('deepPicks') ? 2 : 1) * (r.race === 'dwarf' ? 1.25 : 1);
+  const knowMult = jobMult * hunger * (1 + floors.library * 0.5) * (1 + 0.25 * div(s, 'wisdom'))
     * (r.research.includes('indexCards') ? 1.5 : 1) * (1 + relicBonus(s, 'know'));
 
   const miners = r.jobs.miner;
   const jobRate: Record<JobId, number> = {
-    miner: 0.5 * mineMult * (1 + relicBonus(s, 'dig')),
-    farmer: 0.6 * foodMult,
+    miner: 0.4 * mineMult * (1 + relicBonus(s, 'dig')),
+    farmer: 0.5 * foodMult,
     scholar: 0.25 * knowMult,
   };
   const digPower = miners * jobRate.miner;
-  const tapPower = Math.max(1, (r.jobs.miner * 0.5 * mineMult + 1)) * Math.pow(2, div(s, 'finger'));
+  // Taps give a flat amount plus a small share of your miners' power.
+  const tapPower = (1 + digPower * 0.1) * Math.pow(2, div(s, 'finger'));
 
   const rates = Object.fromEntries(RES_IDS.map((k) => [k, 0])) as Record<ResId, number>;
-  rates.food = r.jobs.farmer * jobRate.farmer - r.pop * 0.05;
+  rates.food = farmed - eaten;
   rates.stone = miners * 0.6 * mineMult * (r.god === 'pebble' ? 2 : 1);
   if (r.depth >= BIOMES[1].from) rates.copper = miners * 0.12 * mineMult;
   if (r.depth >= BIOMES[3].from) rates.iron = miners * 0.05 * mineMult;
@@ -104,7 +112,7 @@ export function derive(s: GameState): Derived {
   const caps = Object.fromEntries(RES_IDS.map((k) => [k, Infinity])) as Record<ResId, number>;
   caps.food = cap; caps.stone = cap; caps.copper = cap; caps.iron = cap;
 
-  const bunk = r.research.includes('bunkBeds') ? 7.5 : 5;
+  const bunk = r.research.includes('bunkBeds') ? 6 : 4;
   const maxPop = Math.floor(6 + floors.bunk * bunk + 3 * div(s, 'fertile'));
   const jobsTotal = r.jobs.miner + r.jobs.farmer + r.jobs.scholar;
   // Colonists not in a job. Until the squad marches out, its planned members are reserved and not idle.
@@ -112,7 +120,8 @@ export function derive(s: GameState): Derived {
   const planTotal = Object.values(r.combat.plan).reduce((a, b) => a + b, 0);
   const reserved = r.combatUnlocked && !r.combat.alive ? Math.min(free, planTotal) : 0;
   const idle = free - reserved;
-  const growth = 0.25 * (1 + floors.tavern * 0.5) * (1 + 0.2 * div(s, 'fertile'))
+  // New dwarves per second: slow for a tiny colony, faster as it grows (Trimps-style breeding).
+  const growth = (GROWTH_BASE + r.pop * GROWTH_PER_POP) * (1 + floors.tavern * 0.5) * (1 + 0.2 * div(s, 'fertile'))
     * (r.god === 'snorg' ? 1.25 : 1) * (1 + relicBonus(s, 'growth')) * globalMult;
 
   return {
@@ -122,6 +131,7 @@ export function derive(s: GameState): Derived {
     gearCostMult: 1 / (1 + floors.forge * 0.2),
     favorMult: (1 + floors.shrine * 0.15) * Math.pow(1.25, r.guardians.length),
     unionBreak,
+    hungry,
     blocked: blockingGuardian(s),
   };
 }
@@ -147,12 +157,13 @@ export function squadStats(s: GameState, comp = s.run.combat.squad) {
   const hpMult = am * (1 + 0.2 * div(s, 'stoneskin')) * (s.run.race === 'dwarf' ? 1.1 : 1) * (1 + relicBonus(s, 'hp'));
   const atkMult = wm * (1 + 0.2 * div(s, 'fervor')) * (1 + relicBonus(s, 'atk')) * (c.cry > 0 ? 2 : 1);
   const maxHp = hp * hpMult;
+  const regenPct = 0; // passive recovery (share of max HP per second) only comes from future perks/skills
   return {
     size: n,
     maxHp,
     atk: dps * atkMult, // average damage per second, for display
     atkMult, // multiplies each individual hit
-    heal: heal * am + maxHp * 0.01, // HP per second, delivered in pulses
+    heal: heal * am + maxHp * regenPct, // HP per second, delivered in pulses
     block: n ? Math.min(0.75, block / n) : 0,
   };
 }

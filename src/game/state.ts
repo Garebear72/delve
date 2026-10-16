@@ -33,6 +33,7 @@ export interface RunState {
   god: GodId;
   res: Record<ResId, number>;
   pop: number;
+  starve: number; // seconds spent starving since a colonist last wandered off
   jobs: Record<JobId, number>;
   depth: number;
   dig: number;
@@ -91,7 +92,8 @@ export function newRun(meta: MetaState, race: RaceId = 'dwarf', god: GodId = 'fo
   return {
     race, god,
     res: { food: 20 + hs * 50, stone: hs * 100, copper: 0, iron: 0, gold: 0, knowledge: 0 },
-    pop: 3,
+    pop: 2,
+    starve: 0,
     jobs: { miner: 0, farmer: 0, scholar: 0 },
     depth: 0, dig: 0, floors: [],
     gear: { wTier: 0, wLvl: 0, aTier: 0, aLvl: 0 },

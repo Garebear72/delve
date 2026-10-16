@@ -42,7 +42,7 @@ export interface FloorDef {
 }
 export const FLOORS: Record<FloorId, FloorDef> = {
   bunk: {
-    name: 'Bunkhouse', desc: '+5 max colonists per level.', cost: { stone: 12 }, color: '#5b3a4a',
+    name: 'Bunkhouse', desc: '+4 max colonists per level.', cost: { stone: 25 }, color: '#5b3a4a',
     props: ['bed', 'bed', 'bed'], unlock: () => true, unlockText: '',
   },
   farm: {
@@ -120,6 +120,12 @@ export const ZONE_CELLS = 25;
 export const CRIT_CHANCE = 0.05;
 export const MAX_VOLLEYS = 6; // big groups of one class swing in at most this many volleys
 export const HEAL_PULSE = 2; // seconds between healing pulses
+export const KILL_HEAL = 0.25; // share of max HP the squad recovers per enemy defeated (skills may raise this)
+export const FOOD_PER_COLONIST = 0.15; // mushrooms eaten per colonist per second
+export const STARVE_INTERVAL = 15; // seconds between hungry colonists wandering off
+export const GROWTH_BASE = 0.012; // new colonists per second, plus...
+export const GROWTH_PER_POP = 0.002; // ...this much per existing colonist
+export const FOOD_PER_BIRTH = 5; // mushrooms it takes to raise a new colonist
 
 export const ENEMIES: Record<string, { name: string; sprite: string; pal: Record<string, string>; item: string; from: number }> = {
   rat: { name: 'Cave Rat', sprite: 'rat', pal: {}, item: 'ratTail', from: 1 },

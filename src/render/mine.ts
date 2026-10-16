@@ -42,6 +42,7 @@ export class MineView {
   private drag = { active: false, lastY: 0, startX: 0, startY: 0, moved: 0, lastT: 0 };
   private spawnAcc = 0;
   private front = { x: 0, y: 0 };
+  private sealX = 0;
   private depth = 0;
 
   constructor(public canvas: HTMLCanvasElement, private onTap: (level: number) => void) {
@@ -75,6 +76,7 @@ export class MineView {
     canvas.addEventListener('pointercancel', end);
 
     on('tap', (power: number) => this.burst(power));
+    on('tapBlocked', () => { for (let i = 0; i < 6; i++) this.spark(this.sealX, this.front.y - 8); });
     on('dug', () => this.dugBurst());
   }
 
@@ -117,6 +119,13 @@ export class MineView {
     this.particles.push({
       x: this.front.x - 10, y: this.front.y - 30, vx: 0, vy: -40, life: 0, max: 0.9,
       color: '#fbf236', size: 0, text: '+' + (power < 10 ? power.toFixed(1) : Math.floor(power)),
+    });
+  }
+  /** A bright spark bouncing off the guardian's seal. */
+  private spark(x: number, y: number) {
+    this.particles.push({
+      x, y, vx: -40 - Math.random() * 120, vy: -Math.random() * 180 - 40, life: 0, max: 0.4 + Math.random() * 0.3,
+      color: Math.random() < 0.5 ? '#fbf236' : '#ffffff', size: 2, floorY: y + 8,
     });
   }
   private dugBurst() {
@@ -334,21 +343,42 @@ export class MineView {
     for (let k = 0; k < rh; k += 6) ctx.fillRect(rx + cw, ry + k, ((k * 7) % 5) + 2, 6);
     this.front = { x: rx + cw, y: ry + rh + this.scrollY - 5 };
 
+    const miners = Math.min(8, r.jobs.miner);
+
     if (d.blocked >= 0) {
+      // Miners keep chipping at a glowing seal; sparks fly but nothing gives.
       const g = GUARDIANS[d.blocked];
-      const pulse = 1 + Math.sin(t * 3) * 0.04;
-      ctx.fillStyle = `rgba(217,87,99,${0.15 + 0.1 * Math.sin(t * 3)})`;
-      ctx.fillRect(rx, ry, rw, rh);
-      drawSprite(ctx, g.sprite, rx + rw - 40, ry + rh - 2, 3.6 * pulse, true, g.pal);
-      ctx.font = '800 12px "Nunito", sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(`Sealed by ${g.name}`, rx + 8, ry + 16);
+      const sealX = rx + Math.min(rw * 0.55, 150);
+      this.sealX = sealX;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(rx, ry, sealX - rx, rh);
+      const glow = 0.55 + 0.35 * Math.sin(t * 3);
+      for (let k = 0; k < rh; k += 10) {
+        ctx.fillStyle = '#5c4a66';
+        ctx.fillRect(sealX, ry + k, 12, 9);
+        ctx.fillStyle = `rgba(217,87,99,${glow})`;
+        ctx.fillRect(sealX + 4, ry + k + 3, 4, 3);
+      }
+      ctx.fillStyle = `rgba(217,87,99,${0.08 + 0.06 * Math.sin(t * 3)})`;
+      ctx.fillRect(sealX + 12, ry, rx + rw - sealX - 12, rh);
+      drawSprite(ctx, g.sprite, rx + rw - 36, ry + rh - 2, 3.4 * (1 + Math.sin(t * 3) * 0.04), true, g.pal);
+      for (let k = 0; k < miners; k++) {
+        const x = sealX - 12 - k * 15;
+        if (x < rx + 8) break;
+        const frame = Math.floor(t * 5 + k * 0.7) % 2;
+        drawSprite(ctx, 'worker', x, ry + rh - 5, 2);
+        drawSprite(ctx, 'pick', x + 9, ry + rh - (frame ? 22 : 14), 2, frame === 1);
+      }
+      if (miners > 0) {
+        this.spawnAcc += dt * Math.min(10, 2 + miners);
+        while (this.spawnAcc > 1) { this.spawnAcc--; this.spark(sealX, ry + rh - 12 + this.scrollY); }
+      }
+      ctx.font = '800 11px "Nunito", sans-serif';
       ctx.fillStyle = '#fbf236';
-      ctx.fillText('Defeat it in Battle!', rx + 8, ry + 32);
+      ctx.fillText(`Sealed by ${g.name}!`, rx + 6, ry + 13);
       return;
     }
 
-    const miners = Math.min(8, r.jobs.miner);
     for (let k = 0; k < miners; k++) {
       const x = Math.max(rx + 10, rx + cw - 12 - k * 15);
       const frame = Math.floor(t * 5 + k * 0.7) % 2;
