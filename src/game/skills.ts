@@ -99,8 +99,8 @@ export function reconcileTrees(s: GameState): boolean {
     refunded = true;
   }
   if (refunded) {
-    s.meta.loadout = s.meta.loadout.filter((a) => knowsAbility(s, a));
-    changed();
+    changed(); // before trimming, so abilitySlots() sees the refunded nodes
+    s.meta.loadout = s.meta.loadout.filter((a) => knowsAbility(s, a)).slice(0, abilitySlots(s));
   }
   return refunded;
 }

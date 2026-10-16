@@ -115,7 +115,7 @@ export function derive(s: GameState): Derived {
   rates.stone = miners * 0.6 * mineMult * (r.god === 'pebble' ? 2 : 1) * pct(b.stone);
   if (r.depth >= BIOMES[1].from) rates.copper = miners * 0.12 * mineMult * pct(b.ore);
   if (r.depth >= BIOMES[3].from) rates.iron = miners * 0.05 * mineMult * pct(b.ore);
-  rates.knowledge = r.jobs.scholar * jobRate.scholar;
+  rates.knowledge = r.floors.some((f) => f?.type === 'library') ? r.jobs.scholar * jobRate.scholar : 0;
 
   const cap = (100 + floors.storage * 200) * pct(b.storage);
   const caps = Object.fromEntries(RES_IDS.map((k) => [k, Infinity])) as Record<ResId, number>;

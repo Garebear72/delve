@@ -33,12 +33,22 @@ export function setActiveSlot(id: number) { const m = slotsMeta(); m.active = id
 export function slotName(id: number): string { return slotsMeta().names[id] ?? `Save ${id}`; }
 export function renameSlot(id: number, name: string) {
   const m = slotsMeta(); m.names[id] = name.slice(0, 24) || `Save ${id}`; setSlotsMeta(m);
+  slotCache = null;
 }
+
+/** The backup only rolls forward every 10 minutes, so it stays a meaningfully older copy. */
+const BACKUP_EVERY = 10 * 60 * 1000;
+const backupTimeKey = (id: number) => `${PREFIX}slot.${id}.bakAt`;
 
 export function saveSlot(id: number, s: GameState): boolean {
   s.savedAt = Date.now();
   const prev = read(slotKey(id));
-  if (prev) write(backupKey(id), prev);
+  const bakAt = Number(read(backupTimeKey(id))) || 0;
+  if (prev && s.savedAt - bakAt >= BACKUP_EVERY) {
+    write(backupKey(id), prev);
+    write(backupTimeKey(id), String(s.savedAt));
+  }
+  slotCache = null;
   return write(slotKey(id), JSON.stringify(s));
 }
 
@@ -49,14 +59,20 @@ function parse(json: string | null): GameState | null {
 export function loadSlot(id: number): GameState | null { return parse(read(slotKey(id))) ?? parse(read(backupKey(id))); }
 export function hasBackup(id: number): boolean { return !!read(backupKey(id)); }
 export function loadBackup(id: number): GameState | null { return parse(read(backupKey(id))); }
+/** When the backup was taken (ms since epoch), or 0. */
+export function backupTime(id: number): number { return Number(read(backupTimeKey(id))) || 0; }
 
 export function deleteSlot(id: number) {
-  remove(slotKey(id)); remove(backupKey(id));
+  remove(slotKey(id)); remove(backupKey(id)); remove(backupTimeKey(id));
   const m = slotsMeta(); delete m.names[id]; setSlotsMeta(m);
+  slotCache = null;
 }
 
 export interface SlotInfo { id: number; name: string; exists: boolean; savedAt: number; summary: string }
+/** Parsed slot summaries, cached until a slot is written, deleted or renamed. */
+let slotCache: SlotInfo[] | null = null;
 export function listSlots(): SlotInfo[] {
+  if (slotCache) return slotCache;
   const out: SlotInfo[] = [];
   for (let id = 1; id <= MAX_SLOTS; id++) {
     const s = parse(read(slotKey(id)));
@@ -65,6 +81,7 @@ export function listSlots(): SlotInfo[] {
       summary: s ? `Depth ${s.run.depth} · Zone ${s.run.maxZone} · ${s.meta.prestiges} prestiges` : 'Empty',
     });
   }
+  slotCache = out;
   return out;
 }
 

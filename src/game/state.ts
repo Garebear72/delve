@@ -1,3 +1,4 @@
+import { ABILITIES, FLOORS, GODS, RACES } from '../data/defs';
 import type { AbilityId, ClassId, FloorId, GodId, JobId, RaceId, ResId } from '../data/defs';
 import type { SkillId } from '../data/skills';
 
@@ -141,7 +142,21 @@ export function migrate(raw: any): GameState {
   const fresh = newGame();
   const out = fill(raw, fresh) as GameState;
   out.v = SAVE_VERSION;
+  sanitize(out);
   return out;
+}
+
+/** Replace ids this version doesn't know (hand-edited or future saves) with safe defaults. */
+function sanitize(s: GameState) {
+  const r = s.run, m = s.meta;
+  if (!(r.race in RACES)) r.race = 'dwarf';
+  if (!(r.god in GODS)) r.god = 'forge';
+  m.races = m.races.filter((x) => x in RACES);
+  m.gods = m.gods.filter((x) => x in GODS);
+  if (!m.races.includes('dwarf')) m.races.unshift('dwarf');
+  if (!m.gods.includes('forge')) m.gods.unshift('forge');
+  m.loadout = m.loadout.filter((a) => a in ABILITIES);
+  r.floors = r.floors.map((f) => (f && f.type in FLOORS && f.level >= 1 ? f : null));
 }
 
 function fill(target: any, defaults: any): any {

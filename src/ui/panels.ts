@@ -4,10 +4,10 @@ import {
   ITEMS, JOBS, JOB_IDS, RACES, RELICS, RESEARCH, RESOURCES, RES_IDS, ResId,
 } from '../data/defs';
 import {
-  canAfford, divineCost, floorBuildCost, floorUpgradeCost, gearLevelCost, gearTierCost, gearTierReady, reliquarySlots, researchCost,
+  canAfford, divineCost, floorBuildCost, floorUnlocked, floorUpgradeCost, gearLevelCost, gearTierCost, gearTierReady, reliquarySlots, researchCost,
 } from '../game/actions';
 import { biomeAt, canPrestige, Derived, div, enemyStats, hasAbility, hasAutoCast, floorPower, gearMult, pendingFavor, squadStats } from '../game/calc';
-import { hasBackup, listSlots } from '../game/save';
+import { backupTime, hasBackup, listSlots } from '../game/save';
 import type { GameState } from '../game/state';
 import { store } from '../game/store';
 import { icon } from '../render/sprites';
@@ -54,7 +54,14 @@ export function colonyPanel(s: GameState, d: Derived, ui: UIState) {
   const bulk = [1, 10, 100, 0].map((n) => btn(n ? '×' + n : 'Max', 'bulk', n, true, ui.bulk === n ? 'on small' : 'small')).join('');
   const jobs = JOB_IDS.map((j) => {
     const def = JOBS[j];
-    if (!def.unlock(s)) return `<div class="row locked"><div class="grow"><b>???</b><div class="sub">${j === 'scholar' ? 'Build a Library to train Scholars.' : ''}</div></div></div>`;
+    if (!def.unlock(s)) {
+      // Locked again (e.g. the Library was demolished) but still staffed: allow taking workers out.
+      if (r.jobs[j] > 0) {
+        return `<div class="row"><div class="grow"><b>${def.name}</b> <span class="num">${r.jobs[j]}</span>
+          <div class="sub neg">No Library: these Scholars can't work. Reassign them.</div></div>${btn('−', 'job', j + ':-', true, 'small')}</div>`;
+      }
+      return `<div class="row locked"><div class="grow"><b>???</b><div class="sub">${j === 'scholar' ? 'Build a Library to train Scholars.' : ''}</div></div></div>`;
+    }
     const each = j === 'miner' ? `${fmt(d.jobRate.miner)} dig/s each` : j === 'farmer' ? `${fmt(d.jobRate.farmer)} food/s each` : `${fmt(d.jobRate.scholar)} knowledge/s each`;
     return `<div class="row"><div class="grow"><b>${def.name}</b> <span class="num">${r.jobs[j]}</span><div class="sub">${def.desc} ${each}.</div></div>
       ${btn('−', 'job', j + ':-', r.jobs[j] > 0, 'small')}${btn('+', 'job', j + ':+', d.idle > 0, 'small')}</div>`;
@@ -95,7 +102,7 @@ export function buildPanel(s: GameState, d: Derived, ui: UIState) {
   const nb = [s.run.floors[slot - 1], s.run.floors[slot + 1]].filter(Boolean).map((f) => f!.type);
   const rows = FLOOR_IDS.map((id) => {
     const def = FLOORS[id];
-    if (!def.unlock(s)) return `<div class="row locked"><div class="grow"><b>${def.name}</b><div class="sub">🔒 ${def.unlockText}</div></div></div>`;
+    if (!floorUnlocked(s, id)) return `<div class="row locked"><div class="grow"><b>${def.name}</b><div class="sub">🔒 ${def.unlockText}</div></div></div>`;
     const cost = floorBuildCost(s, id);
     const bm = biome.floorMult[id] ?? 1;
     const adj = nb.filter((n) => ADJACENCY.some(([a, b]) => (a === id && b === n) || (b === id && a === n))).length;
@@ -316,8 +323,8 @@ export function settingsPanel(s: GameState, d: Derived, ui: UIState) {
     <div class="wrap">${btn('Free tree respec', 'dev', 'respec', true, 'small')}${btn('+5 run perk points', 'dev', 'perks', true, 'small')}${btn('All skills 99', 'dev', 'allSkills', true, 'small')}</div>`;
 
   return `<h3>Save Slots</h3>${slots}
-    <div class="wrap">${btn('Save now', 'saveNow')}${btn('Export save', 'export')}${btn('Import save', 'import')}${hasBackup(store.slot) ? btn('Restore backup', 'restoreBackup', '', true, 'small') : ''}</div>
-    <p class="sub">The game autosaves every 10 seconds and whenever you leave the app. Export your save now and then to keep a copy somewhere safe.</p>
+    <div class="wrap">${btn('Save now', 'saveNow')}${btn('Export save', 'export')}${btn('Import save', 'import')}${hasBackup(store.slot) ? btn(`Restore backup${backupTime(store.slot) ? ` (${fmtTime((Date.now() - backupTime(store.slot)) / 1000)} old)` : ''}`, 'restoreBackup', '', true, 'small') : ''}</div>
+    <p class="sub">The game autosaves every 10 seconds and whenever you leave the app, and keeps a backup that's refreshed every 10 minutes. Export your save now and then to keep a copy somewhere safe.</p>
     ${ui.exportText ? `<textarea readonly class="code" data-keep="1">${ui.exportText}</textarea><div class="wrap">${btn('Copy', 'copyExport')}${btn('Download file', 'downloadExport')}${btn('Hide', 'hideExport', '', true, 'small')}</div>` : ''}
     <h3>Updates</h3>
     <div class="row"><div class="grow"><b>Version ${__APP_VERSION__}</b><div class="sub">Build ${__BUILD_ID__}. The game checks automatically whenever you open it.</div></div>${btn('Check for updates', 'checkUpdate')}</div>

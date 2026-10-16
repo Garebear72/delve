@@ -58,8 +58,12 @@ export function floorUpgradeCost(s: GameState, slot: number): Cost {
   return scale(FLOORS[f.type].cost, 2.2 * Math.pow(2.2, f.level - 1) * floorCostMult(s));
 }
 
+/** Floor unlocks stick for the rest of the run once announced, even if the condition later drops (e.g. population). */
+export const floorUnlocked = (s: GameState, type: FloorId) =>
+  FLOORS[type].unlock(s) || s.run.seen.includes('floor.' + type);
+
 export function buildFloor(s: GameState, slot: number, type: FloorId) {
-  if (slot >= s.run.depth || s.run.floors[slot] || !FLOORS[type].unlock(s)) return false;
+  if (slot >= s.run.depth || s.run.floors[slot] || !floorUnlocked(s, type)) return false;
   const cost = floorBuildCost(s, type);
   if (!canAfford(s, cost)) return false;
   pay(s, cost);
@@ -91,7 +95,8 @@ export function demolishFloor(s: GameState, slot: number) {
 
 // ---------------------------------------------------------------- colony
 export function assignJob(s: GameState, job: JobId, n: number) {
-  if (!JOBS[job].unlock(s)) return false;
+  // Workers can always be taken out of a job, even one that's locked again (e.g. Library demolished).
+  if (n > 0 && !JOBS[job].unlock(s)) return false;
   const d = derive(s);
   const amt = n > 0 ? Math.min(n, d.idle) : Math.max(n, -s.run.jobs[job]);
   if (!amt) return false;

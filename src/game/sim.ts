@@ -97,7 +97,8 @@ export function tick(s: GameState, d: Derived, dt: number) {
 export function digCheck(s: GameState) {
   const r = s.run;
   while (r.dig >= levelHp(r.depth)) {
-    if (derive(s).blocked >= 0) { r.dig = Math.min(r.dig, levelHp(r.depth)); break; }
+    // A guardian seals this level: leftover progress is lost rather than banked on the sealed level.
+    if (derive(s).blocked >= 0) { r.dig = 0; break; }
     r.dig -= levelHp(r.depth);
     addXp(s, 'digging', XP.levelBase * Math.pow(1.1, r.depth));
     r.depth++;
@@ -120,7 +121,7 @@ function spawnEnemy(s: GameState) {
   if (c.mode === 'zone') c.enemyId = enemyFor(c.zone, c.cell);
   const e = enemyStats(s);
   c.enemyHp = c.enemyMax = e.hp;
-  c.eSwing = 0; // a fresh enemy needs a moment before its first attack
+  // The enemy attack clock keeps running across spawns, so fast-killing squads still take hits.
 }
 
 export function formSquad(s: GameState, d: Derived) {
@@ -130,12 +131,19 @@ export function formSquad(s: GameState, d: Derived) {
   c.squad = { ...c.plan };
   c.alive = true;
   c.regroup = 0;
+  c.eSwing = 0; // a freshly formed squad gets a moment before the first enemy blow
   c.squadHp = squadStats(s).maxHp;
   if (c.enemyHp <= 0) spawnEnemy(s);
   emit('squadFormed');
 }
 
+/** Combat always advances in small steps, so long offline steps resolve the same way as live play. */
+const COMBAT_STEP = 0.25;
 function tickCombat(s: GameState, d: Derived, dt: number) {
+  for (let left = dt; left > 1e-9; left -= COMBAT_STEP) combatStep(s, d, Math.min(COMBAT_STEP, left));
+}
+
+function combatStep(s: GameState, d: Derived, dt: number) {
   const c = s.run.combat;
   c.cry = Math.max(0, c.cry - dt); c.cryCd = Math.max(0, c.cryCd - dt);
   c.wall = Math.max(0, c.wall - dt); c.wallCd = Math.max(0, c.wallCd - dt);
