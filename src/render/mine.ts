@@ -255,7 +255,7 @@ export class MineView {
       farm: per(r.jobs.farmer, 'farm'),
       library: per(r.jobs.scholar, 'library'),
       bunk: idleEach, tavern: idleEach,
-      barracks: r.combat.alive ? 0 : Math.min(3, d.idle),
+      barracks: Math.min(3, d.reserved),
       forge: 1, storage: 1, shrine: 1,
     } as Record<string, number>;
   }

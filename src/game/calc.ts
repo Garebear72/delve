@@ -51,6 +51,8 @@ export interface Derived {
   globalMult: number;
   maxPop: number;
   idle: number;
+  free: number;
+  reserved: number;
   caps: Record<ResId, number>;
   rates: Record<ResId, number>;
   jobRate: Record<JobId, number>;
@@ -105,12 +107,16 @@ export function derive(s: GameState): Derived {
   const bunk = r.research.includes('bunkBeds') ? 7.5 : 5;
   const maxPop = Math.floor(6 + floors.bunk * bunk + 3 * div(s, 'fertile'));
   const jobsTotal = r.jobs.miner + r.jobs.farmer + r.jobs.scholar;
-  const idle = Math.max(0, Math.floor(r.pop) - jobsTotal);
+  // Colonists not in a job. Until the squad marches out, its planned members are reserved and not idle.
+  const free = Math.max(0, Math.floor(r.pop) - jobsTotal);
+  const planTotal = Object.values(r.combat.plan).reduce((a, b) => a + b, 0);
+  const reserved = r.combatUnlocked && !r.combat.alive ? Math.min(free, planTotal) : 0;
+  const idle = free - reserved;
   const growth = 0.25 * (1 + floors.tavern * 0.5) * (1 + 0.2 * div(s, 'fertile'))
     * (r.god === 'snorg' ? 1.25 : 1) * (1 + relicBonus(s, 'growth')) * globalMult;
 
   return {
-    floors, globalMult, maxPop, idle, caps, rates, jobRate, digPower, tapPower, growth,
+    floors, globalMult, maxPop, idle, free, reserved, caps, rates, jobRate, digPower, tapPower, growth,
     squadCap: 3 + Math.floor(floors.barracks * 3),
     regroupTime: 5 / (1 + floors.barracks * 0.5),
     gearCostMult: 1 / (1 + floors.forge * 0.2),

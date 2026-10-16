@@ -11,6 +11,8 @@ import { refresh, store } from './game/store';
 import { CombatView } from './render/combat';
 import { battleCanvas, buildShell, createMine, frameUI, mine, pipCanvas, render, showOffline } from './ui/ui';
 
+if (import.meta.env.DEV) (window as any).delve = store; // debugging handle in dev only
+
 buildShell();
 createMine();
 const report = openSlot(activeSlot());

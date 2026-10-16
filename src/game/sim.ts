@@ -108,7 +108,7 @@ function tickCombat(s: GameState, d: Derived, dt: number) {
 
   if (!c.alive) {
     const size = Object.values(c.plan).reduce((a, b) => a + b, 0);
-    if (size > 0 && d.idle >= size) {
+    if (size > 0 && d.free >= size) {
       c.regroup += dt;
       if (c.regroup >= d.regroupTime) formSquad(s, d);
     } else c.regroup = 0;

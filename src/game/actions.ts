@@ -92,9 +92,10 @@ export function setPlan(s: GameState, cls: ClassId, delta: number) {
   if (!CLASSES[cls].unlock(s)) return false;
   const d = derive(s);
   const total = Object.values(c.plan).reduce((a, b) => a + b, 0);
-  const next = Math.max(0, c.plan[cls] + Math.max(delta, -c.plan[cls]));
-  const room = d.squadCap - (total - c.plan[cls]);
-  c.plan[cls] = Math.min(next, room);
+  // Adding a soldier takes an idle colonist (they're reserved until the squad marches out).
+  const add = delta > 0 ? Math.min(delta, d.squadCap - total, c.alive ? Infinity : d.idle) : Math.max(delta, -c.plan[cls]);
+  if (!add) return false;
+  c.plan[cls] += add;
   return true;
 }
 

@@ -69,6 +69,7 @@ export function colonyPanel(s: GameState, d: Derived, ui: UIState) {
     <h3>Colony ${r.inBreak ? '<span class="tag bad">☕ Union Break</span>' : ''}</h3>
     <div class="kv">${icon('i_pop')}<span>Colonists</span><span class="grow"></span><b>${Math.floor(r.pop)} / ${d.maxPop}</b></div>
     <div class="kv"><span>Idle</span><span class="grow"></span><b>${d.idle}</b></div>
+    ${d.reserved ? `<div class="kv"><span>Waiting to join the squad</span><span class="grow"></span><b>${d.reserved}</b></div>` : ''}
     <div class="kv"><span>Growth</span><span class="grow"></span><span>${r.pop >= d.maxPop ? 'Full (build Bunkhouses)' : r.res.food <= 0 ? '<span class="neg">Stopped: no food!</span>' : fmt(d.growth) + '/s'}</span></div>
     ${starving ? '<div class="warn">Mushrooms are running out. Add Farmers or build a Mushroom Farm.</div>' : ''}
     <h3>Jobs <span class="bulk">${bulk}</span></h3>
@@ -141,7 +142,7 @@ export function battlePanel(s: GameState, d: Derived, ui: UIState) {
     if (!def.unlock(s)) return `<div class="row locked"><div class="grow"><b>${def.name}</b><div class="sub">🔒 ${def.unlockText}</div></div></div>`;
     return `<div class="row">${icon('worker', def.pal)}<div class="grow"><b>${def.name}</b> <span class="num">${c.plan[id]}</span>
       <div class="sub">${def.desc} HP ${def.hp}, ATK ${def.atk}${def.heal ? ', heal ' + def.heal : ''}</div></div>
-      ${btn('−', 'plan', id + ':-', c.plan[id] > 0, 'small')}${btn('+', 'plan', id + ':+', planSize < d.squadCap, 'small')}</div>`;
+      ${btn('−', 'plan', id + ':-', c.plan[id] > 0, 'small')}${btn('+', 'plan', id + ':+', planSize < d.squadCap && (c.alive || d.idle > 0), 'small')}</div>`;
   }).join('');
 
   const g = r.gear;
@@ -165,6 +166,9 @@ export function battlePanel(s: GameState, d: Derived, ui: UIState) {
     ${guardian}
     <div class="row"><div class="grow"><b>${c.farm ? 'Staying in zone ' + c.zone : 'Pushing onward'}</b><div class="sub">${c.farm ? 'Repeat this zone for loot and gold.' : 'Advance after each zone boss.'}</div></div>${btn(c.farm ? 'Push on' : 'Stay here', 'farm')}</div>
     <h3>Squad <span class="sub">${planSize} / ${d.squadCap} · reforms in ${fmt(d.regroupTime)}s</span></h3>
+    ${!c.alive && planSize > d.free ? `<div class="warn">Your squad needs ${planSize} colonists but only ${d.free} are free. Move some workers out of jobs in Colony, lower the squad size, or build Bunkhouses for more colonists.</div>` : ''}
+    ${!c.alive && planSize < d.squadCap && d.idle === 0 ? '<div class="sub">No idle colonists to add. Free some up in Colony first.</div>' : ''}
+    <div class="sub">Soldiers come from your idle colonists. When a squad gets bonked, those colonists are lost and new ones must grow.</div>
     ${classes}
     <div class="stats">
       <div><span>HP</span><b>${fmt(c.alive ? sq.maxHp : plan.maxHp)}</b></div>

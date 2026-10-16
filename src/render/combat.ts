@@ -80,9 +80,15 @@ export class CombatView {
       const size = Object.values(c.plan).reduce((a, b) => a + b, 0);
       ctx.fillStyle = '#fbf236';
       ctx.textAlign = 'center';
-      const msg = size === 0 ? 'Add soldiers to your squad' : d.idle >= size ? 'Regrouping…' : `Need ${size} idle colonists`;
+      const ready = Math.min(size, d.free);
+      const msg = size === 0 ? 'Add soldiers to your squad below' : ready >= size ? 'Regrouping…' : `Squad needs ${size}: ${ready} ready`;
       ctx.fillText(msg, W / 2, H / 2);
-      if (d.idle >= size && size > 0) {
+      if (size > 0 && ready < size && !mini) {
+        ctx.font = '700 11px "Nunito", sans-serif';
+        ctx.fillStyle = '#b5a8c4';
+        ctx.fillText('Free workers in Colony, or build Bunkhouses for room', W / 2, H / 2 + 18);
+      }
+      if (ready >= size && size > 0) {
         ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(W / 2 - 50, H / 2 + 8, 100, 5);
         ctx.fillStyle = '#6abe30'; ctx.fillRect(W / 2 - 50, H / 2 + 8, 100 * Math.min(1, c.regroup / d.regroupTime), 5);
       }
