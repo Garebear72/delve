@@ -1,5 +1,5 @@
 // Player actions. Each returns true when something changed.
-import { CLASSES, ClassId, DIVINE, FLOORS, FloorId, GEAR, GodId, JobId, JOBS, RaceId, RESEARCH, ResId, RELICS } from '../data/defs';
+import { CLASSES, ClassId, COMBO_MAX, COMBO_STEP, COMBO_WINDOW, DIVINE, FLOORS, FloorId, GEAR, GodId, JobId, JOBS, RaceId, RESEARCH, ResId, RELICS } from '../data/defs';
 import { derive, div, floorCostMult, pendingFavor, canPrestige } from './calc';
 import { emit, toast } from './events';
 import { digCheck, add } from './sim';
@@ -17,14 +17,24 @@ const scale = (cost: Cost, m: number): Cost =>
   Object.fromEntries(Object.entries(cost).map(([k, v]) => [k, Math.ceil((v ?? 0) * m)]));
 
 // ---------------------------------------------------------------- mine
+// Tap combo: keep tapping without a long pause for up to +50% tap power.
+let combo = 0;
+let lastTapAt = 0;
+export const tapCombo = () => (performance.now() - lastTapAt < COMBO_WINDOW ? combo : 0);
+
 export function tapDig(s: GameState) {
   const d = derive(s);
   add(s, 'taps', 1);
+  const now = performance.now();
+  combo = now - lastTapAt < COMBO_WINDOW ? combo + 1 : 1;
+  lastTapAt = now;
+  if (combo > (s.meta.lifetime.bestCombo ?? 0)) s.meta.lifetime.bestCombo = combo;
   if (d.blocked >= 0) { emit('tapBlocked'); return false; }
-  s.run.dig += d.tapPower;
-  const stone = Math.min(d.caps.stone - s.run.res.stone, 1 + d.tapPower * 0.2);
+  const power = d.tapPower * (1 + Math.min(COMBO_MAX, combo * COMBO_STEP));
+  s.run.dig += power;
+  const stone = Math.min(d.caps.stone - s.run.res.stone, 1 + power * 0.2);
   if (stone > 0) { s.run.res.stone += stone; add(s, 'res.stone', stone); }
-  emit('tap', d.tapPower);
+  emit('tap', { power, combo });
   digCheck(s);
   return true;
 }

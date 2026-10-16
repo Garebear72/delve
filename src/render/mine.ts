@@ -3,6 +3,7 @@ import { BIOMES, FLOORS, GUARDIANS } from '../data/defs';
 import { biomeAt, biomeIndexAt, Derived, levelHp } from '../game/calc';
 import { on } from '../game/events';
 import type { GameState } from '../game/state';
+import { fmt } from '../ui/format';
 import { drawSprite } from './sprites';
 
 export const SURF = 150;
@@ -15,8 +16,10 @@ const BOTTOM_INSET = 70;
 
 interface Particle {
   x: number; y: number; vx: number; vy: number; life: number; max: number;
-  color: string; size: number; floorY?: number; text?: string;
+  color: string; size: number; floorY?: number; text?: string; small?: boolean; ring?: boolean;
 }
+
+const BTN = 34; // size of the per-row build / manage button
 
 function rng(seed: number) {
   let a = seed | 0;
@@ -39,45 +42,77 @@ export class MineView {
   scrollY = -TOP_INSET; vel = 0; follow = true;
   particles: Particle[] = [];
   private patterns = new Map<number, CanvasPattern>();
-  private drag = { active: false, lastY: 0, startX: 0, startY: 0, moved: 0, lastT: 0 };
+  // Every finger is tracked; the first one down scrolls, and any that barely moved count as a tap.
+  private pointers = new Map<number, { startX: number; startY: number; lastY: number; lastT: number; moved: number }>();
+  private scroller = -1;
   private spawnAcc = 0;
   private front = { x: 0, y: 0 };
   private sealX = 0;
   private depth = 0;
+  private lastTap = { x: 0, y: 0 }; // world coordinates of the latest tap, for feedback
 
-  constructor(public canvas: HTMLCanvasElement, private onTap: (level: number) => void) {
+  constructor(
+    public canvas: HTMLCanvasElement,
+    private onTap: (level: number) => void,
+    private onButton: (level: number) => void,
+  ) {
     this.ctx = canvas.getContext('2d')!;
     this.resize();
     addEventListener('resize', () => this.resize());
     canvas.addEventListener('pointerdown', (e) => {
       try { canvas.setPointerCapture(e.pointerId); } catch { /* not capturable; fine */ }
-      Object.assign(this.drag, { active: true, lastY: e.clientY, startX: e.clientX, startY: e.clientY, moved: 0, lastT: performance.now() });
-      this.vel = 0;
+      this.pointers.set(e.pointerId, { startX: e.clientX, startY: e.clientY, lastY: e.clientY, lastT: performance.now(), moved: 0 });
+      if (this.scroller < 0) { this.scroller = e.pointerId; this.vel = 0; }
     });
     canvas.addEventListener('pointermove', (e) => {
-      if (!this.drag.active) return;
-      const dy = e.clientY - this.drag.lastY;
-      const now = performance.now();
-      this.scrollY -= dy;
-      this.vel = (-dy / Math.max(1, now - this.drag.lastT)) * 1000;
-      this.drag.lastY = e.clientY; this.drag.lastT = now;
-      this.drag.moved += Math.abs(dy);
-      if (this.drag.moved > 8) this.follow = false;
+      const p = this.pointers.get(e.pointerId);
+      if (!p) return;
+      p.moved = Math.max(p.moved, Math.hypot(e.clientX - p.startX, e.clientY - p.startY));
+      if (e.pointerId === this.scroller && p.moved > 10) {
+        const dy = e.clientY - p.lastY;
+        const now = performance.now();
+        this.scrollY -= dy;
+        this.vel = (-dy / Math.max(1, now - p.lastT)) * 1000;
+        this.follow = false;
+        p.lastT = now;
+      }
+      p.lastY = e.clientY;
     });
     const end = (e: PointerEvent) => {
-      if (!this.drag.active) return;
-      this.drag.active = false;
-      if (this.drag.moved < 8) {
-        this.vel = 0;
-        this.onTap(Math.floor((e.clientY + this.scrollY - SURF) / FH)); // negative = above ground
-      }
+      const p = this.pointers.get(e.pointerId);
+      if (!p) return;
+      this.pointers.delete(e.pointerId);
+      if (e.pointerId === this.scroller) this.scroller = -1;
+      if (p.moved < 10 && e.type === 'pointerup') this.tapAt(e.clientX, e.clientY);
     };
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
 
-    on('tap', (power: number) => this.burst(power));
-    on('tapBlocked', () => { for (let i = 0; i < 6; i++) this.spark(this.sealX, this.front.y - 8); });
+    on('tap', (t: { power: number; combo: number }) => this.burst(t.power, t.combo));
+    on('tapBlocked', () => {
+      this.ring(this.lastTap.x, this.lastTap.y, '#d95763');
+      for (let i = 0; i < 6; i++) this.spark(this.sealX, this.front.y - 8);
+    });
     on('dug', () => this.dugBurst());
+  }
+
+  private tapAt(x: number, y: number) {
+    const wy = y + this.scrollY;
+    const level = Math.floor((wy - SURF) / FH); // negative = above ground
+    this.lastTap = { x, y: wy };
+    if (level >= 0 && level < this.depth && this.hitButton(x, wy, level)) this.onButton(level);
+    else this.onTap(level);
+  }
+
+  /** The build / manage button on the right of each dug row (world coordinates). */
+  private button(level: number) {
+    const x = this.w - 6 - BTN - 5;
+    const y = SURF + level * FH + (FH - BTN) / 2 + 1;
+    return { x, y };
+  }
+  private hitButton(x: number, wy: number, level: number) {
+    const b = this.button(level);
+    return x >= b.x - 8 && x <= b.x + BTN + 8 && wy >= b.y - 6 && wy <= b.y + BTN + 6;
   }
 
   resize() {
@@ -112,14 +147,26 @@ export class MineView {
     return p;
   }
 
-  private burst(power: number) {
+  private burst(power: number, combo: number) {
     const b = biomeAt(this.depth);
-    for (let i = 0; i < 10; i++) this.spawnChunk(this.front.x, this.front.y, b.colors[i % 3], 1.4);
+    for (let i = 0; i < 8; i++) this.spawnChunk(this.front.x, this.front.y, b.colors[i % 3], 1.4);
     if (Math.random() < 0.6) this.spawnChunk(this.front.x, this.front.y, b.speck, 1.4);
+    // Feedback right under the finger: a ripple, the amount dug and the combo.
+    const { x, y } = this.lastTap;
+    this.ring(x, y, '#fbf236');
     this.particles.push({
-      x: this.front.x - 10, y: this.front.y - 30, vx: 0, vy: -40, life: 0, max: 0.9,
-      color: '#fbf236', size: 0, text: '+' + (power < 10 ? power.toFixed(1) : Math.floor(power)),
+      x: x - 12 + (Math.random() - 0.5) * 14, y: y - 18, vx: 0, vy: -70, life: 0, max: 0.8,
+      color: '#fbf236', size: 0, text: '+' + (power < 10 ? power.toFixed(1) : fmt(power)),
     });
+    if (combo >= 5) {
+      this.particles.push({
+        x: x + 14, y: y - 34, vx: 0, vy: -50, life: 0, max: 0.6,
+        color: combo >= 50 ? '#ff8a3d' : '#f3ead8', size: 0, text: `x${combo}`, small: true,
+      });
+    }
+  }
+  private ring(x: number, y: number, color: string) {
+    this.particles.push({ x, y, vx: 0, vy: 0, life: 0, max: 0.35, color, size: 0, ring: true });
   }
   /** A bright spark bouncing off the guardian's seal. */
   private spark(x: number, y: number) {
@@ -148,7 +195,7 @@ export class MineView {
 
     // Scrolling: follow the dig front, or coast with inertia.
     const maxScroll = Math.max(-TOP_INSET, frontWorldY + 3 * FH - h + BOTTOM_INSET);
-    if (!this.drag.active) {
+    if (this.scroller < 0) {
       if (this.follow) this.scrollY += (frontWorldY - h * 0.55 - this.scrollY) * Math.min(1, dt * 4);
       else { this.scrollY += this.vel * dt; this.vel *= Math.pow(0.04, dt); }
     }
@@ -280,11 +327,10 @@ export class MineView {
       ctx.setLineDash([6, 6]);
       ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
       ctx.setLineDash([]);
-      ctx.font = '13px "Nunito", sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.45)';
-      ctx.textAlign = 'center';
-      ctx.fillText('+ Build', rx + rw / 2, ry + rh / 2 + 4);
-      ctx.textAlign = 'left';
+      ctx.font = '700 12px "Nunito", sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillText('Empty level', rx + 10, ry + rh / 2 + 4);
+      this.drawButton(i, true, t);
       return;
     }
     const def = FLOORS[f.type];
@@ -299,7 +345,7 @@ export class MineView {
 
     const n = def.props.length;
     def.props.forEach((p, k) => {
-      const px = n === 1 ? rx + rw * 0.7 : rx + 30 + (k * (rw - 60)) / (n - 1);
+      const px = n === 1 ? rx + rw * 0.6 : rx + 30 + (k * (rw - 70 - BTN)) / (n - 1);
       drawSprite(ctx, p, px, ry + rh - 5, 3);
     });
     if (f.type === 'forge' || f.type === 'shrine') {
@@ -311,7 +357,7 @@ export class MineView {
     const pal: Record<string, string> = f.type === 'shrine' ? { c: '#f4f4f4', h: '#fbf236' } : f.type === 'forge' ? { c: '#5c6b78' } : {};
     for (let k = 0; k < count; k++) {
       const seed = i * 7 + k * 13;
-      const p = pingpong(t * (14 + (seed % 9)) + seed * 23, rw - 40);
+      const p = pingpong(t * (14 + (seed % 9)) + seed * 23, rw - 50 - BTN);
       const bob = Math.abs(Math.sin(t * 8 + seed)) * 2;
       drawSprite(ctx, 'worker', rx + 20 + p.x, ry + rh - 5 - bob, 2, !p.right, pal);
     }
@@ -327,6 +373,24 @@ export class MineView {
       ctx.fillStyle = bm > 1 ? '#6abe30' : '#d95763';
       ctx.fillText(bm > 1 ? '▲' : '▼', rx + 9 + ctx.measureText(label).width, ry + 14);
     }
+    this.drawButton(i, false, t);
+  }
+
+  /** Gold "+" on empty rows, a gear on built floors. Everything else in the mine digs when tapped. */
+  private drawButton(level: number, empty: boolean, t: number) {
+    const { ctx } = this;
+    const b = this.button(level);
+    const x = b.x, y = b.y - this.scrollY;
+    ctx.fillStyle = empty ? 'rgba(60,45,10,0.92)' : 'rgba(20,14,26,0.8)';
+    ctx.fillRect(x, y, BTN, BTN);
+    ctx.strokeStyle = empty ? `rgba(251,242,54,${0.7 + 0.3 * Math.sin(t * 4 + level)})` : 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, BTN - 2, BTN - 2);
+    ctx.fillStyle = empty ? '#fbf236' : '#f3ead8';
+    ctx.font = `800 ${empty ? 24 : 18}px "Nunito", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(empty ? '+' : '⚙', x + BTN / 2, y + BTN / 2 + (empty ? 8 : 6));
+    ctx.textAlign = 'left';
   }
 
   private drawFront(s: GameState, d: Derived, y: number, t: number, dt: number) {
@@ -395,7 +459,7 @@ export class MineView {
       ctx.font = '800 13px "Nunito", sans-serif';
       ctx.fillStyle = `rgba(251,242,54,${0.6 + 0.4 * Math.sin(t * 4)})`;
       ctx.textAlign = 'right';
-      ctx.fillText('Tap here to dig!', rx + rw - 8, ry + 18);
+      ctx.fillText('Tap anywhere to dig!', rx + rw - 8, ry + 18);
       ctx.textAlign = 'left';
     }
     // progress bar
@@ -411,10 +475,16 @@ export class MineView {
     for (const p of this.particles) {
       p.life += dt;
       if (p.life >= p.max) continue;
-      if (p.text) {
+      if (p.ring) {
+        const k = p.life / p.max;
+        ctx.globalAlpha = 1 - k;
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 3 - 2 * k;
+        ctx.beginPath(); ctx.arc(p.x, p.y - sy, 6 + k * 26, 0, Math.PI * 2); ctx.stroke();
+      } else if (p.text) {
         p.y += p.vy * dt;
         ctx.globalAlpha = 1 - p.life / p.max;
-        ctx.font = '800 16px "Nunito", sans-serif';
+        ctx.font = `800 ${p.small ? 13 : 18}px "Nunito", sans-serif`;
         ctx.fillStyle = '#1b1622';
         ctx.fillText(p.text, p.x + 1, p.y - sy + 1);
         ctx.fillStyle = p.color;

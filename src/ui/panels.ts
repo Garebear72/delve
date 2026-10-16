@@ -12,6 +12,7 @@ import type { GameState } from '../game/state';
 import { store } from '../game/store';
 import { icon } from '../render/sprites';
 import { esc, fmt, fmtRate, fmtTime } from './format';
+import { prefs } from './prefs';
 
 export interface UIState {
   tab: string | null;
@@ -268,7 +269,7 @@ export function bookPanel(s: GameState, d: Derived, ui: UIState) {
     body = st('Time played', fmtTime(m.time)) + st('This run', fmtTime(s.run.time)) + st('Prestiges', String(m.prestiges)) +
       st('Best depth', String(m.bestDepth)) + st('Best zone', String(m.bestZone)) + st('Levels dug', fmt(m.lifetime.levels ?? 0)) +
       st('Monsters defeated', fmt(m.lifetime.kills ?? 0)) + st('Squads bonked', fmt(m.lifetime.wipes ?? 0)) +
-      st('Dig taps', fmt(m.lifetime.taps ?? 0)) + st('Total Favor earned', fmt(m.totalFavor));
+      st('Dig taps', fmt(m.lifetime.taps ?? 0)) + st('Best tap combo', fmt(m.lifetime.bestCombo ?? 0)) + st('Total Favor earned', fmt(m.totalFavor));
   }
   return `<div class="wrap subtabs">${tabs}</div>${body}`;
 }
@@ -299,6 +300,7 @@ export function settingsPanel(s: GameState, d: Derived, ui: UIState) {
     <h3>Install on your phone</h3>
     <p class="sub">In Chrome, tap ⋮ → <b>Add to Home screen</b> (or <b>Install app</b>). Delve then opens full-screen and works offline.</p>
     <h3>Options</h3>
+    <div class="row"><div class="grow"><b>Vibrate on tap</b><div class="sub">A tiny buzz each time you tap to dig.</div></div>${btn(prefs.vibrate ? 'On' : 'Off', 'vibrate', '', true, prefs.vibrate ? 'on' : '')}</div>
     <div class="row"><div class="grow"><b>Developer mode</b><div class="sub">Speed controls and cheats for testing.</div></div>${btn(store.dev ? 'On' : 'Off', 'devToggle', '', true, store.dev ? 'on' : '')}</div>
     ${dev}
     <h3>Danger zone</h3>

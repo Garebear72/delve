@@ -13,6 +13,7 @@ import { refresh, store } from '../game/store';
 import { MineView } from '../render/mine';
 import { icon } from '../render/sprites';
 import { fmt, fmtRate, fmtTime } from './format';
+import { prefs, savePrefs } from './prefs';
 import {
   battlePanel, bookPanel, buildPanel, colonyPanel, divinePanel, floorPanel, importModal, prestigeModal, settingsPanel, UIState,
 } from './panels';
@@ -59,16 +60,22 @@ export function buildShell() {
 
 export let mine: MineView;
 export function createMine() {
-  mine = new MineView($('mine') as HTMLCanvasElement, (level) => {
-    if (ui.tab) { closeSheet(); return; } // a tap outside an open panel just closes it
-    const s = store.state;
-    if (level === s.run.depth) { A.tapDig(s); refresh(); return; }
-    if (level >= 0 && level < s.run.depth) {
+  mine = new MineView(
+    $('mine') as HTMLCanvasElement,
+    // Tapping anywhere in the mine digs (or just closes an open panel).
+    () => {
+      if (ui.tab) { closeSheet(); return; }
+      A.tapDig(store.state);
+      if (prefs.vibrate) navigator.vibrate?.(8);
+      refresh();
+    },
+    // The button on each row builds or manages that floor.
+    (level) => {
       ui.slot = level;
       ui.armDemolish = -1;
-      openTab(s.run.floors[level] ? 'floor' : 'build');
-    }
-  });
+      openTab(store.state.run.floors[level] ? 'floor' : 'build');
+    },
+  );
 }
 
 let ignorePops = 0;
@@ -264,6 +271,7 @@ function act(name: string, arg: string) {
       } catch { toast("That doesn't look like a Delve save code.", 'bad'); }
       return;
     }
+    case 'vibrate': prefs.vibrate = !prefs.vibrate; savePrefs(); if (prefs.vibrate) navigator.vibrate?.(20); break;
     case 'applyUpdate': applyUpdate(); return;
     case 'checkUpdate':
       toast('Checking for updates…');
@@ -353,7 +361,7 @@ function lockedPanel(id: string) {
   const body = id === 'battle'
     ? `<p>Monsters lurk in the side caverns. To open the Expedition, <b>build a Barracks</b> floor.</p>
        <p>${barracksOpen
-         ? 'Barracks are unlocked! Go to the Mine, tap any empty level and choose <b>Barracks</b>.'
+         ? 'Barracks are unlocked! Go to the Mine, tap the gold <b>+</b> on any empty level and choose <b>Barracks</b>.'
          : `Barracks unlock at <b>depth 5</b>. You're at depth <b>${r.depth}</b>. Keep digging!`}</p>`
     : `<p>The gods take notice of colonies that dig deep. The Divine tab opens at <b>depth 8</b>. You're at depth <b>${r.depth}</b>.</p>
        <p>This is where you prestige: start a new expedition stronger than before.</p>`;
@@ -385,10 +393,10 @@ function renderHint() {
   if (d.hungry) hint = '🍄 Your dwarves are starving! Assign Farmers in Colony.';
   else if (r.inBreak) hint = '☕ Union Break! Production paused.';
   else if (d.blocked >= 0) hint = 'A guardian blocks the way down. Fight it in the Battle tab.';
-  else if (r.depth === 0 && r.jobs.miner === 0) hint = 'Tap the dig front to dig, or assign Miners in Colony.';
+  else if (r.depth === 0 && r.jobs.miner === 0) hint = 'Tap anywhere in the mine to dig, or assign Miners in Colony.';
   else if (r.jobs.farmer === 0 && d.rates.food < 0) hint = 'Your dwarves need food. Assign a Farmer in Colony.';
   else if (d.idle > 0 && r.jobs.miner + r.jobs.farmer === 0) hint = 'You have idle colonists. Give them jobs in Colony.';
-  else if (r.depth >= 1 && !r.floors.some(Boolean)) hint = 'Tap an empty level to build a floor on it.';
+  else if (r.depth >= 1 && !r.floors.some(Boolean)) hint = 'Tap the gold + on an empty level to build a floor.';
   else if (d.rates.food < 0 && r.res.food < 20) hint = 'Mushrooms are running low! Add Farmers.';
   else if (r.depth >= 5 && !r.combatUnlocked) hint = 'Barracks unlocked! Build one on an empty level to open Battle.';
   else if (r.pop >= d.maxPop && !r.floors.some((f) => f?.type === 'bunk')) hint = 'Colony is full. Build a Bunkhouse for more room.';

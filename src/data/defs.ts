@@ -126,6 +126,9 @@ export const STARVE_INTERVAL = 15; // seconds between hungry colonists wandering
 export const GROWTH_BASE = 0.012; // new colonists per second, plus...
 export const GROWTH_PER_POP = 0.002; // ...this much per existing colonist
 export const FOOD_PER_BIRTH = 5; // mushrooms it takes to raise a new colonist
+export const COMBO_WINDOW = 1500; // ms between taps before the combo resets
+export const COMBO_STEP = 0.01; // +1% tap power per combo step...
+export const COMBO_MAX = 0.5; // ...up to +50%
 
 export const ENEMIES: Record<string, { name: string; sprite: string; pal: Record<string, string>; item: string; from: number }> = {
   rat: { name: 'Cave Rat', sprite: 'rat', pal: {}, item: 'ratTail', from: 1 },
