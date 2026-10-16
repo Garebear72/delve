@@ -5,6 +5,8 @@ import {
 } from '../data/defs';
 import { derive, Derived, enemyFor, enemyStats, goldMult, hasAbility, hasAutoCast, levelHp, squadStats } from './calc';
 import { emit, toast } from './events';
+import { addXp, isOffline, setOffline } from './skills';
+import { PERK_POINTS_PER_GUARDIAN, XP } from '../data/skills';
 import type { GameState } from './state';
 
 const STEP = 0.25;
@@ -22,11 +24,14 @@ export function advance(s: GameState, seconds: number) {
 export function catchUp(s: GameState, seconds: number) {
   const step = Math.max(1, seconds / 20000);
   let left = seconds;
-  while (left > 0) {
-    const dt = Math.min(step, left);
-    tick(s, derive(s), dt);
-    left -= dt;
-  }
+  setOffline(true);
+  try {
+    while (left > 0) {
+      const dt = Math.min(step, left);
+      tick(s, derive(s), dt);
+      left -= dt;
+    }
+  } finally { setOffline(false); }
 }
 
 let achTimer = 0;
@@ -55,7 +60,11 @@ export function tick(s: GameState, d: Derived, dt: number) {
     const born = Math.min(d.maxPop - r.pop, d.growth * dt, r.res.food / FOOD_PER_BIRTH);
     r.pop += born;
     r.res.food -= born * FOOD_PER_BIRTH;
+    addXp(s, 'colony', born * XP.birth);
   }
+
+  // The colony running itself trains Hands-Off (much faster while you're away).
+  addXp(s, 'handsOff', dt * (isOffline() ? XP.offlinePerSec : XP.idlePerSec));
 
   // Starvation: every so often a hungry colonist wanders off (idle ones first). The last two always stay.
   if (d.hungry && r.pop >= 3) {
@@ -89,6 +98,7 @@ export function digCheck(s: GameState) {
   while (r.dig >= levelHp(r.depth)) {
     if (derive(s).blocked >= 0) { r.dig = Math.min(r.dig, levelHp(r.depth)); break; }
     r.dig -= levelHp(r.depth);
+    addXp(s, 'digging', XP.levelBase * Math.pow(1.1, r.depth));
     r.depth++;
     r.floors.push(null);
     add(s, 'levels', 1);
@@ -153,13 +163,13 @@ function tickCombat(s: GameState, d: Derived, dt: number) {
     if (!k) { c.swing[id] = 0; continue; }
     const def = CLASSES[id];
     const volleys = Math.min(k, MAX_VOLLEYS);
-    const interval = def.speed / volleys;
+    const interval = def.speed / sq.speed / volleys;
     c.swing[id] += dt;
     while (c.swing[id] >= interval && c.alive) {
       c.swing[id] -= interval;
       if (c.enemyHp <= 0) spawnEnemy(s);
-      const crit = Math.random() < CRIT_CHANCE;
-      const dmg = def.atk * (k / volleys) * sq.atkMult * (crit ? 2 : 1);
+      const crit = Math.random() < sq.critChance;
+      const dmg = def.atk * (k / volleys) * sq.atkMult * (crit ? sq.critMult : 1);
       c.enemyHp -= dmg;
       emit('hit', { cls: id, dmg, crit });
       if (c.enemyHp <= 0) onKill(s);
@@ -178,7 +188,7 @@ function tickCombat(s: GameState, d: Derived, dt: number) {
     if (c.squadHp <= 0) { wipe(s); return; }
   }
 
-  // Healing (Clerics plus a little natural recovery) arrives in pulses.
+  // Healing (Clerics, plus regeneration from skills) arrives in pulses.
   c.healT += dt;
   while (c.healT >= HEAL_PULSE) {
     c.healT -= HEAL_PULSE;
@@ -218,9 +228,12 @@ function onKill(s: GameState) {
   if (c.mode === 'guardian') {
     const g = GUARDIANS[c.guardian];
     r.guardians.push(c.guardian);
+    const first = !s.meta.bestiary['g' + c.guardian];
     s.meta.bestiary['g' + c.guardian] = (s.meta.bestiary['g' + c.guardian] ?? 0) + 1;
     gainRelic(s, g.relic);
-    toast(`${g.name} has fallen! The way down is open.`, 'epic');
+    addXp(s, 'combat', XP.guardianBase * Math.pow(c.guardian + 1, 2));
+    r.perkPoints += PERK_POINTS_PER_GUARDIAN;
+    toast(`${g.name} has fallen! The way down is open. +${PERK_POINTS_PER_GUARDIAN} run perk points${first ? ', +2 general skill points' : ''}.`, 'epic');
     c.mode = 'zone'; c.guardian = -1; c.enemyHp = 0;
     c.squadHp = squadStats(s).maxHp;
     return;
@@ -229,6 +242,7 @@ function onKill(s: GameState) {
   const id = c.enemyId;
   s.meta.bestiary[id] = (s.meta.bestiary[id] ?? 0) + 1;
   const boss = c.cell === ZONE_CELLS - 1;
+  addXp(s, 'combat', XP.killBase * Math.pow(c.zone, 1.1) * (boss ? 5 : 1));
   const gold = Math.pow(1.25, c.zone - 1) * (boss ? 10 : 1) * goldMult(s);
   r.res.gold += gold; add(s, 'res.gold', gold);
 
@@ -245,19 +259,22 @@ function onKill(s: GameState) {
       const missing = BOSS_RELICS.filter((x) => !r.relics.includes(x));
       if (missing.length) gainRelic(s, missing[Math.floor(Math.random() * missing.length)]);
     }
-    if (!c.farm) {
-      c.zone++;
-      if (c.zone - 1 > r.maxZone) r.maxZone = c.zone - 1;
+    // First time clearing a zone this run earns a run perk point.
+    if (c.zone > r.maxZone) {
+      r.maxZone = c.zone;
+      r.perkPoints++;
       if (r.maxZone > s.meta.bestZone) s.meta.bestZone = r.maxZone;
-      toast(`Zone ${c.zone - 1} cleared!`, 'good');
-    } else if (c.zone > r.maxZone) { r.maxZone = c.zone; }
+      toast(`Zone ${c.zone} cleared! +1 run perk point.`, 'good');
+    }
+    if (!c.farm) c.zone++;
     c.cell = 0;
     c.squadHp = squadStats(s).maxHp;
   } else {
     c.cell++;
     // Each victory patches the squad up a bit.
-    const max = squadStats(s).maxHp;
-    const amt = Math.min(max - c.squadHp, max * KILL_HEAL);
+    const sq = squadStats(s);
+    const max = sq.maxHp;
+    const amt = Math.min(max - c.squadHp, max * sq.killHeal);
     if (amt > 0) { c.squadHp += amt; emit('heal', { amt, cleric: false }); }
   }
   c.enemyHp = 0;

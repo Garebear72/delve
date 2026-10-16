@@ -148,6 +148,71 @@ canvas.battle { width: 100%; height: 210px; display: block; border-radius: 6px; 
 textarea.code { width: 100%; height: 90px; font-family: monospace; font-size: 11px; background: #110d16; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 6px; user-select: text; -webkit-user-select: text; }
 input[type=file] { margin: 8px 0; color: var(--sub); font: inherit; font-size: 13px; }
 
+/* tabs: room for seven */
+.tab { font-size: 11px; min-width: 0; }
+.tab .emo { font-size: 19px; line-height: 22px; height: 22px; }
+.tab .dot {
+  position: absolute; top: 3px; right: calc(50% - 22px); font-style: normal; font-size: 10px; font-weight: 800;
+  background: #d95763; color: #fff; border-radius: 8px; min-width: 16px; height: 16px; line-height: 16px; padding: 0 3px;
+}
+
+/* skills */
+.skgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 8px 0 6px; }
+.skchip {
+  position: relative; display: flex; align-items: center; gap: 5px; text-align: left; font: inherit; color: var(--text);
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; min-width: 0;
+}
+.skchip.on { border-color: var(--gold); box-shadow: inset 0 -3px 0 var(--gold); }
+.skchip b { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.skchip .sub { font-size: 11px; }
+.skchip .pts { position: absolute; top: -6px; right: -4px; font-size: 11px; padding: 0 6px; }
+.sk-icon { font-size: 18px; }
+.sk-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.skdetail { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+.sk-top { display: flex; justify-content: space-between; align-items: baseline; }
+.xpbar { height: 5px; background: #0006; border-radius: 3px; overflow: hidden; }
+.xpbar i { display: block; height: 100%; background: linear-gradient(90deg, #8fe05a, #fbf236); }
+.pts { background: #d95763; color: #fff; font-weight: 800; border-radius: 10px; padding: 1px 8px; font-size: 13px; }
+
+.skillmap { position: relative; margin: 10px auto; }
+.skillmap svg { position: absolute; inset: 0; pointer-events: none; }
+.skillmap line { stroke: #4a3d5c; stroke-width: 3; }
+.skillmap line.lit { stroke: var(--gold); }
+.tierband {
+  position: absolute; left: 0; right: 0; height: 26px; display: flex; justify-content: space-between; align-items: center;
+  padding: 0 8px; font-size: 12px; font-weight: 800; color: var(--accent); border-top: 1px dashed #4a3d5c; background: #ffffff06;
+}
+.tierband.locked { color: var(--sub); }
+.node {
+  position: absolute; transform: translate(-50%, -50%); width: 48px; height: 48px; border-radius: 50%;
+  background: #2e2539; border: 3px solid #4a3d5c; color: var(--text); font-size: 22px; padding: 0;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.node.k-notable { width: 56px; height: 56px; font-size: 26px; }
+.node.k-keystone { width: 60px; height: 60px; border-radius: 14px; font-size: 28px; }
+.node.k-ability { border-radius: 12px; }
+.node.k-choice { border-style: dashed; }
+.node.locked, .node.excluded { opacity: .45; filter: grayscale(.7); }
+.node.excluded { opacity: .25; }
+.node.avail { border-color: #8fe05a; box-shadow: 0 0 10px #8fe05a88; animation: glow 1.6s ease-in-out infinite; }
+.node.learned { border-color: var(--gold); background: #4a3c1a; }
+.node.maxed { border-color: var(--gold); background: #6b5a1e; box-shadow: 0 0 10px #fbf23666; }
+.node.sel { outline: 3px solid #fff; outline-offset: 2px; }
+.node .rank {
+  position: absolute; bottom: -8px; right: -10px; font-size: 10px; font-weight: 800; background: #1b1622;
+  border: 1px solid var(--line); border-radius: 8px; padding: 0 4px; line-height: 15px;
+}
+@keyframes glow { 50% { box-shadow: 0 0 2px #8fe05a44; } }
+.node-card {
+  position: sticky; bottom: 0; background: #1b1622f5; border: 2px solid var(--line); border-radius: 8px;
+  padding: 10px; margin-top: 6px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 -6px 16px #0008;
+}
+.node-card.hint { color: var(--sub); font-size: 13px; text-align: center; }
+.node-card.k-keystone { border-color: var(--epic); }
+.nc-head { display: flex; align-items: center; gap: 8px; }
+.nc-icon { font-size: 26px; }
+.row.dim { opacity: .7; }
+
 /* toasts */
 #toasts { position: absolute; top: 80px; left: 8px; right: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 9; pointer-events: none; align-items: center; }
 .toast {

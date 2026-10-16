@@ -4,6 +4,7 @@ import { div } from './calc';
 import { setQuiet, toast } from './events';
 import { loadSlot, saveSlot, setActiveSlot } from './save';
 import { catchUp } from './sim';
+import { bonuses } from './skills';
 import { GameState, newGame } from './state';
 import { refresh, store } from './store';
 
@@ -24,7 +25,7 @@ export function saveNow(): boolean {
 }
 
 export function offlineCap(s: GameState) {
-  return (8 + 4 * div(s, 'memory')) * 3600;
+  return (8 + 4 * div(s, 'memory') + bonuses(s).offline) * 3600;
 }
 
 export function applyOffline(seconds: number): OfflineReport {

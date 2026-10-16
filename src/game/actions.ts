@@ -3,6 +3,8 @@ import { CLASSES, ClassId, COMBO_MAX, COMBO_STEP, COMBO_WINDOW, DIVINE, FLOORS, 
 import { derive, div, floorCostMult, pendingFavor, canPrestige } from './calc';
 import { emit, toast } from './events';
 import { digCheck, add } from './sim';
+import { addXp, bonuses, respecTrees } from './skills';
+import { XP } from '../data/skills';
 import { GameState, newRun } from './state';
 
 type Cost = Partial<Record<ResId, number>>;
@@ -20,18 +22,18 @@ const scale = (cost: Cost, m: number): Cost =>
 // Tap combo: keep tapping without a long pause for up to +50% tap power.
 let combo = 0;
 let lastTapAt = 0;
-export const tapCombo = () => (performance.now() - lastTapAt < COMBO_WINDOW ? combo : 0);
-
 export function tapDig(s: GameState) {
   const d = derive(s);
+  const b = bonuses(s);
   add(s, 'taps', 1);
   const now = performance.now();
-  combo = now - lastTapAt < COMBO_WINDOW ? combo + 1 : 1;
+  combo = now - lastTapAt < COMBO_WINDOW + b.comboWindow ? combo + 1 : 1;
   lastTapAt = now;
   if (combo > (s.meta.lifetime.bestCombo ?? 0)) s.meta.lifetime.bestCombo = combo;
-  const power = d.tapPower * (1 + Math.min(COMBO_MAX, combo * COMBO_STEP));
+  addXp(s, 'handsOn', XP.tap * (1 + Math.min(combo, 50) / 50));
+  const power = d.tapPower * (1 + Math.min(COMBO_MAX + b.combo, combo * COMBO_STEP));
   // Every tap knocks loose some stone, even against a guardian's seal.
-  const stone = Math.min(d.caps.stone - s.run.res.stone, 1 + power * 0.2);
+  const stone = Math.min(d.caps.stone - s.run.res.stone, (1 + power * 0.2) * (1 + b.tapStone));
   if (stone > 0) { s.run.res.stone += stone; add(s, 'res.stone', stone); }
   if (d.blocked >= 0) { emit('tapBlocked', { stone }); return false; }
   s.run.dig += power;
@@ -55,6 +57,7 @@ export function buildFloor(s: GameState, slot: number, type: FloorId) {
   if (!canAfford(s, cost)) return false;
   pay(s, cost);
   s.run.floors[slot] = { type, level: 1 };
+  addXp(s, 'colony', XP.build);
   if (type === 'barracks' && !s.run.combatUnlocked) {
     s.run.combatUnlocked = true;
     toast('Monsters spotted in the side caverns! The Expedition (Battle tab) is open.', 'epic');
@@ -69,6 +72,7 @@ export function upgradeFloor(s: GameState, slot: number) {
   if (!canAfford(s, cost)) return false;
   pay(s, cost);
   f.level++;
+  addXp(s, 'colony', XP.build);
   emit('built', slot);
   return true;
 }
@@ -161,7 +165,7 @@ export function buyDivine(s: GameState, id: string) {
 }
 export const reliquarySlots = (s: GameState) => 1 + div(s, 'reliquary');
 
-export function prestige(s: GameState, keep: string[], race: RaceId, god: GodId) {
+export function prestige(s: GameState, keep: string[], race: RaceId, god: GodId, respec = false) {
   const d = derive(s);
   if (!canPrestige(s, d)) return false;
   const gain = pendingFavor(s, d);
@@ -176,6 +180,7 @@ export function prestige(s: GameState, keep: string[], race: RaceId, god: GodId)
     if (!s.meta.races.includes('goblin')) s.meta.races.push('goblin');
     if (!s.meta.gods.includes('snorg')) s.meta.gods.push('snorg');
   }
+  if (respec) respecTrees(s);
   s.run = newRun(s.meta, s.meta.races.includes(race) ? race : 'dwarf', s.meta.gods.includes(god) ? god : 'forge');
   toast(`A new expedition begins! +${gain + bonus} Divine Favor.`, 'epic');
   emit('prestige');

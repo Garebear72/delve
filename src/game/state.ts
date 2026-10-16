@@ -1,4 +1,5 @@
-import type { ClassId, FloorId, GodId, JobId, RaceId, ResId } from '../data/defs';
+import type { AbilityId, ClassId, FloorId, GodId, JobId, RaceId, ResId } from '../data/defs';
+import type { SkillId } from '../data/skills';
 
 export const SAVE_VERSION = 1;
 
@@ -49,6 +50,9 @@ export interface RunState {
   time: number;
   inBreak: boolean;
   seen: string[]; // unlock announcements already shown
+  perks: Record<string, number>; // run perk ranks (reset every prestige)
+  perkPoints: number; // run perk points earned this run
+  perkRespecs: number;
 }
 
 export interface MetaState {
@@ -68,6 +72,9 @@ export interface MetaState {
   gods: GodId[];
   time: number;
   created: number;
+  skills: Record<SkillId, number>; // XP per skill (permanent)
+  alloc: Record<string, number>; // learned skill tree nodes and their ranks
+  loadout: AbilityId[]; // equipped abilities
 }
 
 export interface GameState {
@@ -107,6 +114,9 @@ export function newRun(meta: MetaState, race: RaceId = 'dwarf', god: GodId = 'fo
     time: 0,
     inBreak: false,
     seen: [],
+    perks: {},
+    perkPoints: 0,
+    perkRespecs: 0,
   };
 }
 
@@ -115,6 +125,9 @@ export function newMeta(): MetaState {
     favor: 0, totalFavor: 0, divine: {}, prestiges: 0, achievements: [], lifetime: {}, collection: {},
     bestiary: {}, relicsFound: [], reliquary: [], bestDepth: 0, bestZone: 0,
     races: ['dwarf'], gods: ['forge'], time: 0, created: Date.now(),
+    skills: { combat: 0, digging: 0, colony: 0, handsOn: 0, handsOff: 0 },
+    alloc: {},
+    loadout: [],
   };
 }
 

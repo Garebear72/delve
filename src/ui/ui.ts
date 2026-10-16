@@ -14,13 +14,16 @@ import { MineView } from '../render/mine';
 import { icon } from '../render/sprites';
 import { fmt, fmtRate, fmtTime } from './format';
 import { prefs, savePrefs } from './prefs';
+import { skillsPanel, unspentPoints } from './skillsPanel';
+import type { SkillId } from '../data/skills';
+import { buyPerk, learn, respecPerks, toggleEquip } from '../game/skills';
 import {
   battlePanel, bookPanel, buildPanel, colonyPanel, divinePanel, floorPanel, importModal, prestigeModal, settingsPanel, UIState,
 } from './panels';
 
 export const ui: UIState = {
   tab: null, slot: 0, bookTab: 'ach', bulk: 1, armDemolish: -1, keep: [], nextRace: 'dwarf', nextGod: 'forge',
-  pip: true, exportText: '',
+  pip: true, exportText: '', skillTree: 'combat', skillNode: '', respec: false,
 };
 let modal: string | null = null;
 
@@ -89,7 +92,7 @@ export function openTab(tab: string | null, fromHistory = false) {
     else if (wasOpen && !ui.tab && history.state?.delve === 'sheet') { ignorePops++; history.back(); }
   }
   $('sheet').classList.toggle('open', !!ui.tab);
-  $('sheet').classList.toggle('tall', ui.tab === 'battle');
+  $('sheet').classList.toggle('tall', ui.tab === 'battle' || ui.tab === 'skills');
   if (ui.tab) $('sheetBody').scrollTop = 0;
   render();
 }
@@ -211,7 +214,8 @@ function act(name: string, arg: string) {
     case 'nextRace': ui.nextRace = arg; showModal('prestige', prestigeModal(s, store.d, ui)); return;
     case 'nextGod': ui.nextGod = arg; showModal('prestige', prestigeModal(s, store.d, ui)); return;
     case 'prestige':
-      if (canPrestige(s, store.d) && A.prestige(s, ui.keep, ui.nextRace as RaceId, ui.nextGod as GodId)) {
+      if (canPrestige(s, store.d) && A.prestige(s, ui.keep, ui.nextRace as RaceId, ui.nextGod as GodId, ui.respec)) {
+        ui.respec = false;
         closeModal(); refresh(); saveNow(); openTab(null); mine.jumpToFront();
       }
       return;
@@ -272,6 +276,14 @@ function act(name: string, arg: string) {
       return;
     }
     case 'vibrate': prefs.vibrate = !prefs.vibrate; savePrefs(); if (prefs.vibrate) navigator.vibrate?.(20); break;
+    // skills
+    case 'skillTree': ui.skillTree = arg as SkillId | 'run'; ui.skillNode = ''; break;
+    case 'skillNode': ui.skillNode = ui.skillNode === arg ? '' : arg; break;
+    case 'learn': learn(s, arg); break;
+    case 'perk': buyPerk(s, arg); break;
+    case 'perkRespec': respecPerks(s); break;
+    case 'equip': toggleEquip(s, arg as AbilityId); break;
+    case 'respecToggle': ui.respec = !ui.respec; showModal('prestige', prestigeModal(s, store.d, ui)); return;
     case 'applyUpdate': applyUpdate(); return;
     case 'checkUpdate':
       toast('Checking for updates…');
@@ -318,6 +330,7 @@ export function render() {
   switch (ui.tab && tabLocked(ui.tab) ? 'locked' : ui.tab) {
     case 'locked': html = lockedPanel(ui.tab!); break;
     case 'colony': html = colonyPanel(s, d, ui); break;
+    case 'skills': html = skillsPanel(s, ui); break;
     case 'battle': html = battlePanel(s, d, ui); break;
     case 'divine': html = divinePanel(s, d); break;
     case 'book': html = bookPanel(s, d, ui); break;
@@ -374,6 +387,7 @@ function renderTabs() {
     ['mine', 'Mine', icon('i_stone')],
     ['colony', 'Colony', icon('i_pop')],
     ['battle', 'Battle', icon('sword')],
+    ['skills', 'Skills', '<span class="emo">🌳</span>'],
     ['divine', 'Divine', icon('i_favor')],
     ['book', 'Book', icon('i_know')],
     ['settings', 'Menu', '☰'],
@@ -382,7 +396,8 @@ function renderTabs() {
   const html = tabs.map(([id, name, ic]) => {
     const locked = tabLocked(id);
     const cls = (active === id || (id === 'mine' && (active === 'build' || active === 'floor')) ? 'on' : '') + (locked ? ' locked' : '');
-    return `<button id="tab-${id}" class="tab ${cls}" data-tab="${id}">${locked ? '<i class="lock">🔒</i>' : ''}${ic}<span>${name}</span></button>`;
+    const dot = id === 'skills' && unspentPoints(s) > 0 ? `<i class="dot">${unspentPoints(s)}</i>` : '';
+    return `<button id="tab-${id}" class="tab ${cls}" data-tab="${id}">${locked ? '<i class="lock">🔒</i>' : ''}${dot}${ic}<span>${name}</span></button>`;
   }).join('');
   morphdom($('tabs'), `<nav id="tabs">${html}</nav>`);
 }

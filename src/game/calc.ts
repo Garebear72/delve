@@ -1,8 +1,9 @@
 // Derived numbers: everything computed from state (rates, caps, squad stats).
 import {
   AbilityId, ACH_BONUS, ADJACENCY, BIOMES, CLASSES, CLASS_IDS, ENEMIES, FLOOR_IDS, FloorId, ENEMY_ATK, ENEMY_ATK_GROWTH, ENEMY_HP, ENEMY_HP_GROWTH, FOOD_PER_COLONIST, GEAR, GROWTH_BASE, GROWTH_PER_POP, GUARDIANS, JobId,
-  RELICS, RelicEffect, RES_IDS, ResId, ZONE_CELLS,
+  CRIT_CHANCE, KILL_HEAL, RELICS, RelicEffect, RES_IDS, ResId, ZONE_CELLS,
 } from '../data/defs';
+import { bonuses, equipped } from './skills';
 import type { GameState } from './state';
 
 export function biomeIndexAt(level: number): number {
@@ -23,9 +24,10 @@ export function blockingGuardian(s: GameState): number {
 export const levelHp = (level: number) => 200 * Math.pow(1.2, level);
 export const div = (s: GameState, id: string) => s.meta.divine[id] ?? 0;
 
-// Abilities and auto-casting are earned from the skill tree, which isn't built yet.
-export const hasAbility = (_s: GameState, _id: AbilityId) => false;
-export const hasAutoCast = (_s: GameState) => false;
+// Abilities are learned in the skill trees and must be equipped in the loadout to be used.
+export const hasAbility = (s: GameState, id: AbilityId) => equipped(s, id);
+export const hasAutoCast = (s: GameState) => bonuses(s).autoCast > 0;
+const pct = (v: number) => Math.max(0.1, 1 + v); // skill bonus as a multiplier, never below 10%
 
 export function relicBonus(s: GameState, effect: RelicEffect): number {
   let b = 0;
@@ -47,7 +49,7 @@ export function floorPower(s: GameState, i: number): number {
 }
 
 export function floorCostMult(s: GameState): number {
-  return s.run.research.includes('masonry') ? 0.75 : 1;
+  return (s.run.research.includes('masonry') ? 0.75 : 1) * Math.max(0.2, 1 - bonuses(s).floorCost);
 }
 
 export interface Derived {
@@ -74,15 +76,16 @@ export interface Derived {
 
 export function derive(s: GameState): Derived {
   const r = s.run;
+  const b = bonuses(s);
   const floors = Object.fromEntries(FLOOR_IDS.map((f) => [f, 0])) as Record<FloorId, number>;
   r.floors.forEach((f, i) => { if (f) floors[f.type] += floorPower(s, i); });
 
   const globalMult = 1 + s.meta.achievements.length * ACH_BONUS;
   const goblin = r.race === 'goblin';
   const unionBreak = goblin && r.time % 120 >= 100;
-  const jobMult = (unionBreak ? 0 : 1) * (goblin ? 1.4 : 1) * globalMult;
+  const jobMult = (unionBreak ? 0 : 1) * (goblin ? 1.4 : 1) * globalMult * pct(b.jobs);
 
-  const foodMult = jobMult * (1 + floors.farm * 0.5) * (1 + 0.25 * div(s, 'harvest'))
+  const foodMult = jobMult * (1 + floors.farm * 0.5) * (1 + 0.25 * div(s, 'harvest')) * pct(b.food)
     * (r.research.includes('compost') ? 1.5 : 1) * (r.god === 'snorg' ? 1.5 : 1) * (1 + relicBonus(s, 'food'));
   const farmed = r.jobs.farmer * 0.5 * foodMult;
   const eaten = r.pop * FOOD_PER_COLONIST;
@@ -91,8 +94,8 @@ export function derive(s: GameState): Derived {
   const hunger = hungry ? 0.5 : 1;
 
   const mineMult = jobMult * hunger * (1 + 0.25 * div(s, 'picks')) * (r.research.includes('sharpPicks') ? 1.5 : 1)
-    * (r.research.includes('deepPicks') ? 2 : 1) * (r.race === 'dwarf' ? 1.25 : 1);
-  const knowMult = jobMult * hunger * (1 + floors.library * 0.5) * (1 + 0.25 * div(s, 'wisdom'))
+    * (r.research.includes('deepPicks') ? 2 : 1) * (r.race === 'dwarf' ? 1.25 : 1) * pct(b.dig);
+  const knowMult = jobMult * hunger * (1 + floors.library * 0.5) * (1 + 0.25 * div(s, 'wisdom')) * pct(b.know)
     * (r.research.includes('indexCards') ? 1.5 : 1) * (1 + relicBonus(s, 'know'));
 
   const miners = r.jobs.miner;
@@ -103,21 +106,21 @@ export function derive(s: GameState): Derived {
   };
   const digPower = miners * jobRate.miner;
   // Taps give a flat amount plus a small share of your miners' power.
-  const tapPower = (1 + digPower * 0.1) * Math.pow(2, div(s, 'finger'));
+  const tapPower = (1 + digPower * 0.1) * Math.pow(2, div(s, 'finger')) * pct(b.tap);
 
   const rates = Object.fromEntries(RES_IDS.map((k) => [k, 0])) as Record<ResId, number>;
   rates.food = farmed - eaten;
-  rates.stone = miners * 0.6 * mineMult * (r.god === 'pebble' ? 2 : 1);
-  if (r.depth >= BIOMES[1].from) rates.copper = miners * 0.12 * mineMult;
-  if (r.depth >= BIOMES[3].from) rates.iron = miners * 0.05 * mineMult;
+  rates.stone = miners * 0.6 * mineMult * (r.god === 'pebble' ? 2 : 1) * pct(b.stone);
+  if (r.depth >= BIOMES[1].from) rates.copper = miners * 0.12 * mineMult * pct(b.ore);
+  if (r.depth >= BIOMES[3].from) rates.iron = miners * 0.05 * mineMult * pct(b.ore);
   rates.knowledge = r.jobs.scholar * jobRate.scholar;
 
-  const cap = 100 + floors.storage * 200;
+  const cap = (100 + floors.storage * 200) * pct(b.storage);
   const caps = Object.fromEntries(RES_IDS.map((k) => [k, Infinity])) as Record<ResId, number>;
   caps.food = cap; caps.stone = cap; caps.copper = cap; caps.iron = cap;
 
   const bunk = r.research.includes('bunkBeds') ? 6 : 4;
-  const maxPop = Math.floor(6 + floors.bunk * bunk + 3 * div(s, 'fertile'));
+  const maxPop = Math.floor(6 + floors.bunk * bunk + 3 * div(s, 'fertile') + b.pop);
   const jobsTotal = r.jobs.miner + r.jobs.farmer + r.jobs.scholar;
   // Colonists not in a job. Until the squad marches out, its planned members are reserved and not idle.
   const free = Math.max(0, Math.floor(r.pop) - jobsTotal);
@@ -126,12 +129,12 @@ export function derive(s: GameState): Derived {
   const idle = free - reserved;
   // New dwarves per second: slow for a tiny colony, faster as it grows (Trimps-style breeding).
   const growth = (GROWTH_BASE + r.pop * GROWTH_PER_POP) * (1 + floors.tavern * 0.5) * (1 + 0.2 * div(s, 'fertile'))
-    * (r.god === 'snorg' ? 1.25 : 1) * (1 + relicBonus(s, 'growth')) * globalMult;
+    * (r.god === 'snorg' ? 1.25 : 1) * (1 + relicBonus(s, 'growth')) * globalMult * pct(b.growth);
 
   return {
     floors, globalMult, maxPop, idle, free, reserved, caps, rates, jobRate, digPower, tapPower, growth,
     squadCap: 3 + Math.floor(floors.barracks * 3),
-    regroupTime: 5 / (1 + floors.barracks * 0.5),
+    regroupTime: 5 / (1 + floors.barracks * 0.5) / pct(b.regroup),
     gearCostMult: 1 / (1 + floors.forge * 0.2),
     favorMult: (1 + floors.shrine * 0.15) * Math.pow(1.25, r.guardians.length),
     unionBreak,
@@ -157,18 +160,25 @@ export function squadStats(s: GameState, comp = s.run.combat.squad) {
     const def = CLASSES[id];
     hp += k * def.hp; dps += (k * def.atk) / def.speed; heal += k * def.heal; block += k * def.block; n += k;
   }
+  const b = bonuses(s);
   const am = gearMult(s, 'a'), wm = gearMult(s, 'w');
-  const hpMult = am * (1 + 0.2 * div(s, 'stoneskin')) * (s.run.race === 'dwarf' ? 1.1 : 1) * (1 + relicBonus(s, 'hp'));
-  const atkMult = wm * (1 + 0.2 * div(s, 'fervor')) * (1 + relicBonus(s, 'atk')) * (c.cry > 0 ? 2 : 1);
+  const hpMult = am * (1 + 0.2 * div(s, 'stoneskin')) * (s.run.race === 'dwarf' ? 1.1 : 1) * (1 + relicBonus(s, 'hp')) * pct(b.hp);
+  const atkMult = wm * (1 + 0.2 * div(s, 'fervor')) * (1 + relicBonus(s, 'atk')) * (c.cry > 0 ? 2 : 1) * pct(b.dmg);
   const maxHp = hp * hpMult;
-  const regenPct = 0; // passive recovery (share of max HP per second) only comes from future perks/skills
+  const speed = pct(b.speed);
+  const critChance = Math.min(1, CRIT_CHANCE + b.crit);
+  const critMult = 2 + b.critDmg;
   return {
     size: n,
     maxHp,
-    atk: dps * atkMult, // average damage per second, for display
+    atk: dps * atkMult * speed * (1 + critChance * (critMult - 1)), // average damage per second, for display
     atkMult, // multiplies each individual hit
-    heal: heal * am + maxHp * regenPct, // HP per second, delivered in pulses
-    block: n ? Math.min(0.75, block / n) : 0,
+    speed, // divides every class's time between swings
+    critChance,
+    critMult,
+    killHeal: KILL_HEAL + b.killHeal,
+    heal: heal * am + maxHp * b.regen, // HP per second, delivered in pulses (regen only comes from skills)
+    block: n ? Math.min(0.75, block / n + b.block) : 0,
   };
 }
 
@@ -205,7 +215,7 @@ export function enemyStats(s: GameState) {
 }
 
 export function goldMult(s: GameState) {
-  return (1 + 0.25 * div(s, 'greed')) * (s.run.research.includes('haggling') ? 1.5 : 1) * (1 + relicBonus(s, 'gold'));
+  return (1 + 0.25 * div(s, 'greed')) * (s.run.research.includes('haggling') ? 1.5 : 1) * (1 + relicBonus(s, 'gold')) * pct(bonuses(s).gold);
 }
 
 // ---------------------------------------------------------------- prestige

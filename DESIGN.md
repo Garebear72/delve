@@ -130,7 +130,7 @@ Goofy: **Snorg**, God of Snacks · **Pebble**, God of Rocks (only cares about ro
 
 ---
 
-## 7. Skills (proposed — awaiting confirmation)
+## 7. Skills (built in v0.2; trees will keep growing)
 
 ### Skills level by doing (RuneScape-style)
 - Five skills to start: **Combat**, **Digging**, **Colony**, **Hands-On** (tapping/combos), **Hands-Off** (automation/offline). More unlock later (Magic, Smithing, …).

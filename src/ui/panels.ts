@@ -13,6 +13,8 @@ import { store } from '../game/store';
 import { icon } from '../render/sprites';
 import { esc, fmt, fmtRate, fmtTime } from './format';
 import { prefs } from './prefs';
+import type { SkillId } from '../data/skills';
+import { abilitySlots, knowsAbility, rank } from '../game/skills';
 
 export interface UIState {
   tab: string | null;
@@ -25,6 +27,9 @@ export interface UIState {
   nextGod: string;
   pip: boolean;
   exportText: string;
+  skillTree: SkillId | 'run';
+  skillNode: string;
+  respec: boolean; // reset skill trees on the next prestige
 }
 
 type Cost = Partial<Record<ResId, number>>;
@@ -128,13 +133,20 @@ export function battlePanel(s: GameState, d: Derived, ui: UIState) {
   const planSize = Object.values(c.plan).reduce((a, b) => a + b, 0);
   const e = enemyStats(s);
 
+  // Ability loadout: learned abilities can be equipped up to the slot limit; only equipped ones can be used.
   const cds: Record<AbilityId, number> = { cry: c.cryCd, wall: c.wallCd };
-  const known = (Object.keys(ABILITIES) as AbilityId[]).filter((id) => hasAbility(s, id));
+  const known = (Object.keys(ABILITIES) as AbilityId[]).filter((id) => knowsAbility(s, id));
+  const slots = abilitySlots(s);
   const abilities = known.length
-    ? known.map((id) => `<div class="row"><div class="grow"><b>${ABILITIES[id].name}</b><div class="sub">${ABILITIES[id].desc} Cooldown ${ABILITIES[id].cooldown}s.</div></div>
-        ${btn(cds[id] > 0 ? `${Math.ceil(cds[id])}s` : 'Use', 'ability', id, c.alive && cds[id] <= 0, 'ability ' + id)}</div>`).join('')
+    ? `<h3>Abilities <span class="sub">${s.meta.loadout.length} / ${slots} equipped</span></h3>` +
+      known.map((id) => {
+        const on = hasAbility(s, id);
+        return `<div class="row ${on ? '' : 'dim'}"><div class="grow"><b>${ABILITIES[id].name}</b><div class="sub">${ABILITIES[id].desc} Cooldown ${ABILITIES[id].cooldown}s.</div></div>
+          ${on ? btn(cds[id] > 0 ? `${Math.ceil(cds[id])}s` : 'Use', 'ability', id, c.alive && cds[id] <= 0, 'ability ' + id) : ''}
+          ${btn(on ? 'Unequip' : 'Equip', 'equip', id, on || s.meta.loadout.length < slots, 'small')}</div>`;
+      }).join('')
       + (hasAutoCast(s) ? btn(c.autoCast ? 'Auto-cast: ON' : 'Auto-cast: OFF', 'autocast', '', true, c.autoCast ? 'on' : '') : '')
-    : '<div class="sub">No abilities yet. They\'ll be earned from the skill tree.</div>';
+    : '<div class="sub">No abilities yet. Learn them in the Skills tab (Combat tree).</div>';
 
   const guardian = d.blocked >= 0 ? (() => {
     const g = GUARDIANS[d.blocked];
@@ -227,6 +239,9 @@ export function prestigeModal(s: GameState, d: Derived, ui: UIState) {
     <h3>Race</h3><div class="wrap">${races}</div><div class="sub">${r?.desc ?? ''}</div>
     <h3>God</h3><div class="wrap">${gods}</div><div class="sub">${g?.desc ?? ''}</div>
     ${s.meta.prestiges === 0 ? '<p class="sub">Your first prestige also unlocks a new race and a new god.</p>' : ''}
+    <h3>Skill trees</h3>
+    <div class="row"><div class="grow"><b>Reset my skill trees</b><div class="sub">Prestige is the only time major trees can be respecced. Skill levels are always kept.</div></div>
+      ${btn(ui.respec ? 'Yes' : 'No', 'respecToggle', '', Object.keys(s.meta.alloc).length > 0, ui.respec ? 'on' : '')}</div>
     <div class="center">${btn('Cancel', 'closeModal')} ${btn('Prestige!', 'prestige', '', true, 'epic')}</div>`;
 }
 
