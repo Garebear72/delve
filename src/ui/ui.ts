@@ -39,10 +39,18 @@ export function buildShell() {
     <div id="modal" class="hidden"><div id="modalBox"></div></div>`;
 
   document.addEventListener('click', onClick);
-  $('handle').addEventListener('click', () => openTab(null));
   $('jump').addEventListener('click', () => mine.jumpToFront());
   $('pip').addEventListener('click', () => openTab('battle'));
-  $('modal').addEventListener('click', (e) => { if (e.target === $('modal') && modal !== 'offline') closeModal(); });
+  $('topbar').addEventListener('click', closeSheet);
+  $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
+  bindSheetGestures();
+
+  // Android back button/gesture closes a popup or panel instead of leaving the app.
+  addEventListener('popstate', () => {
+    if (ignorePops > 0) { ignorePops--; return; }
+    if (modal) closeModal(true);
+    else if (ui.tab) openTab(null, true);
+  });
 
   on('toast', ({ text, kind }) => toast(text, kind));
   on('achievement', (a) => toast(`🏆 ${a.name}: ${a.desc} (+2% to everything)`, 'epic'));
@@ -52,9 +60,10 @@ export function buildShell() {
 export let mine: MineView;
 export function createMine() {
   mine = new MineView($('mine') as HTMLCanvasElement, (level) => {
+    if (ui.tab) { closeSheet(); return; } // a tap outside an open panel just closes it
     const s = store.state;
     if (level === s.run.depth) { A.tapDig(s); refresh(); return; }
-    if (level < s.run.depth) {
+    if (level >= 0 && level < s.run.depth) {
       ui.slot = level;
       ui.armDemolish = -1;
       openTab(s.run.floors[level] ? 'floor' : 'build');
@@ -62,9 +71,16 @@ export function createMine() {
   });
 }
 
-export function openTab(tab: string | null) {
+let ignorePops = 0;
+
+export function openTab(tab: string | null, fromHistory = false) {
+  const wasOpen = !!ui.tab;
   ui.tab = ui.tab === tab ? null : tab;
   if (tab === 'build' || tab === 'floor') ui.tab = tab;
+  if (!fromHistory) {
+    if (!wasOpen && ui.tab) history.pushState({ delve: 'sheet' }, '');
+    else if (wasOpen && !ui.tab && history.state?.delve === 'sheet') { ignorePops++; history.back(); }
+  }
   $('sheet').classList.toggle('open', !!ui.tab);
   $('sheet').classList.toggle('tall', ui.tab === 'battle');
   if (ui.tab) $('sheetBody').scrollTop = 0;
@@ -83,12 +99,51 @@ function toast(text: string, kind = 'info') {
   setTimeout(() => el.remove(), 4000);
 }
 
+export function closeSheet() { if (ui.tab) openTab(null); }
+
+/** Swipe down on a panel's top (or on its content when scrolled to the top) to close it. */
+function bindSheetGestures() {
+  const sheet = $('sheet'), handle = $('handle'), body = $('sheetBody');
+  let startY = -1, dy = 0;
+  handle.addEventListener('pointerdown', (e) => {
+    startY = e.clientY; dy = 0;
+    handle.setPointerCapture(e.pointerId);
+    sheet.style.transition = 'none';
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (startY < 0) return;
+    dy = Math.max(0, e.clientY - startY);
+    sheet.style.transform = `translateY(${dy}px)`;
+  });
+  const end = () => {
+    if (startY < 0) return;
+    startY = -1;
+    sheet.style.transition = ''; sheet.style.transform = '';
+    if (dy > 50 || dy < 6) closeSheet(); // a swipe down, or a plain tap on the handle
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+
+  let touchY = -1;
+  body.addEventListener('touchstart', (e) => { touchY = body.scrollTop <= 0 ? e.touches[0].clientY : -1; }, { passive: true });
+  body.addEventListener('touchend', (e) => {
+    if (touchY >= 0 && e.changedTouches[0].clientY - touchY > 90 && body.scrollTop <= 0) closeSheet();
+    touchY = -1;
+  }, { passive: true });
+}
+
 function showModal(kind: string, html: string) {
+  if (!modal) history.pushState({ delve: 'modal' }, '');
   modal = kind;
   $('modalBox').innerHTML = html;
   $('modal').classList.remove('hidden');
 }
-function closeModal() { modal = null; $('modal').classList.add('hidden'); }
+function closeModal(fromHistory = false) {
+  if (!modal) return;
+  modal = null;
+  $('modal').classList.add('hidden');
+  if (!fromHistory && history.state?.delve === 'modal') { ignorePops++; history.back(); }
+}
 
 export function showOffline(rep: OfflineReport) {
   if (rep.away < 60) return;

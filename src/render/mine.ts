@@ -49,7 +49,7 @@ export class MineView {
     this.resize();
     addEventListener('resize', () => this.resize());
     canvas.addEventListener('pointerdown', (e) => {
-      canvas.setPointerCapture(e.pointerId);
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* not capturable; fine */ }
       Object.assign(this.drag, { active: true, lastY: e.clientY, startX: e.clientX, startY: e.clientY, moved: 0, lastT: performance.now() });
       this.vel = 0;
     });
@@ -68,8 +68,7 @@ export class MineView {
       this.drag.active = false;
       if (this.drag.moved < 8) {
         this.vel = 0;
-        const level = Math.floor((e.clientY + this.scrollY - SURF) / FH);
-        if (level >= 0) this.onTap(level);
+        this.onTap(Math.floor((e.clientY + this.scrollY - SURF) / FH)); // negative = above ground
       }
     };
     canvas.addEventListener('pointerup', end);
