@@ -238,7 +238,7 @@ export class MineView {
     const { ctx, w } = this;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(ROOM_X, y - 7, w - ROOM_X - 6, 14);
-    ctx.font = '700 11px "Pixelify Sans", monospace';
+    ctx.font = '700 12px "Pixelify Sans", monospace';
     ctx.fillStyle = '#fbf236';
     ctx.textAlign = 'center';
     ctx.fillText(`~ ${name} ~`, (ROOM_X + w) / 2, y + 4);
@@ -272,7 +272,7 @@ export class MineView {
       ctx.setLineDash([6, 6]);
       ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
       ctx.setLineDash([]);
-      ctx.font = '13px "Pixelify Sans", monospace';
+      ctx.font = '13px "Nunito", sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.45)';
       ctx.textAlign = 'center';
       ctx.fillText('+ Build', rx + rw / 2, ry + rh / 2 + 4);
@@ -309,7 +309,7 @@ export class MineView {
     }
 
     const bm = biomeAt(i).floorMult[f.type] ?? 1;
-    ctx.font = '700 11px "Pixelify Sans", monospace';
+    ctx.font = '800 11px "Nunito", sans-serif';
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     const label = `${def.name}${f.level > 1 ? ' Lv' + f.level : ''}`;
     ctx.fillRect(rx + 3, ry + 3, ctx.measureText(label).width + (bm !== 1 ? 18 : 8), 14);
@@ -341,7 +341,7 @@ export class MineView {
       ctx.fillStyle = `rgba(217,87,99,${0.15 + 0.1 * Math.sin(t * 3)})`;
       ctx.fillRect(rx, ry, rw, rh);
       drawSprite(ctx, g.sprite, rx + rw - 40, ry + rh - 2, 3.6 * pulse, true, g.pal);
-      ctx.font = '700 12px "Pixelify Sans", monospace';
+      ctx.font = '800 12px "Nunito", sans-serif';
       ctx.fillStyle = '#fff';
       ctx.fillText(`Sealed by ${g.name}`, rx + 8, ry + 16);
       ctx.fillStyle = '#fbf236';
@@ -363,7 +363,7 @@ export class MineView {
       while (this.spawnAcc > 1) { this.spawnAcc--; this.spawnChunk(this.front.x, this.front.y, b.colors[Math.floor(Math.random() * 3)], 0.6); }
     }
     if (r.depth < 3) {
-      ctx.font = '700 13px "Pixelify Sans", monospace';
+      ctx.font = '800 13px "Nunito", sans-serif';
       ctx.fillStyle = `rgba(251,242,54,${0.6 + 0.4 * Math.sin(t * 4)})`;
       ctx.textAlign = 'right';
       ctx.fillText('Tap here to dig!', rx + rw - 8, ry + 18);
@@ -385,7 +385,7 @@ export class MineView {
       if (p.text) {
         p.y += p.vy * dt;
         ctx.globalAlpha = 1 - p.life / p.max;
-        ctx.font = '700 16px "Pixelify Sans", monospace';
+        ctx.font = '800 16px "Nunito", sans-serif';
         ctx.fillStyle = '#1b1622';
         ctx.fillText(p.text, p.x + 1, p.y - sy + 1);
         ctx.fillStyle = p.color;

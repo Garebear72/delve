@@ -233,7 +233,10 @@ function checkProgress(s: GameState) {
     if (cond && !r.seen.includes(id)) { r.seen.push(id); toast(text, kind); }
   };
   for (const f of FLOOR_IDS) {
-    if (FLOORS[f].unlockText) once('floor.' + f, FLOORS[f].unlock(s), `New floor unlocked: ${FLOORS[f].name}!`);
+    if (FLOORS[f].unlockText) {
+      const extra = f === 'barracks' ? ' Build one to open the Battle tab.' : '';
+      once('floor.' + f, FLOORS[f].unlock(s), `New floor unlocked: ${FLOORS[f].name}!${extra}`);
+    }
   }
   once('copper', r.depth >= BIOMES[1].from, 'Copper veins! Miners now haul up copper.');
   once('iron', r.depth >= BIOMES[3].from, 'Iron! Miners now haul up iron.');

@@ -72,7 +72,7 @@ export class CombatView {
         ctx.fillRect(10 + i * (cw + 2), 8, cw, 6);
       }
     }
-    ctx.font = `700 ${mini ? 10 : 12}px "Pixelify Sans", monospace`;
+    ctx.font = `800 ${mini ? 10 : 12}px "Nunito", sans-serif`;
     ctx.fillStyle = '#fff';
     ctx.fillText(c.mode === 'guardian' ? 'GUARDIAN FIGHT' : `Zone ${c.zone} · ${c.cell + 1}/${ZONE_CELLS}`, mini ? 4 : 10, mini ? 12 : 30);
 
@@ -161,7 +161,7 @@ export class CombatView {
         ctx.fillStyle = this.abilityFlash.kind === 'cry' ? `rgba(217,87,99,${a * 0.4})` : `rgba(123,213,245,${a * 0.4})`;
         ctx.fillRect(0, 0, W, H);
         if (!mini) {
-          ctx.font = '700 22px "Pixelify Sans", monospace';
+          ctx.font = '800 22px "Nunito", sans-serif';
           ctx.fillStyle = `rgba(255,255,255,${a})`;
           ctx.textAlign = 'center';
           ctx.fillText(this.abilityFlash.kind === 'cry' ? 'BATTLE CRY!' : 'SHIELD WALL!', W / 2, H * 0.45);
@@ -176,7 +176,7 @@ export class CombatView {
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x, y, w, h);
     ctx.fillStyle = color; ctx.fillRect(x, y, w * Math.max(0, Math.min(1, frac)), h);
     if (label) {
-      ctx.font = '11px "Pixelify Sans", monospace';
+      ctx.font = '700 11px "Nunito", sans-serif';
       ctx.fillStyle = '#fff';
       ctx.fillText(label, x, y + h + 12);
     }
@@ -191,7 +191,7 @@ export class CombatView {
       if (!p.text) p.vy += 500 * dt;
       ctx.globalAlpha = 1 - p.life / p.max;
       if (p.text) {
-        ctx.font = `700 ${p.size}px "Pixelify Sans", monospace`;
+        ctx.font = `800 ${p.size}px "Nunito", sans-serif`;
         ctx.fillStyle = '#000'; ctx.fillText(p.text, p.x + 1, p.y + 1);
         ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y);
       } else { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); }

@@ -1,5 +1,7 @@
-import '@fontsource/pixelify-sans/400.css';
 import '@fontsource/pixelify-sans/700.css';
+import '@fontsource/nunito/400.css';
+import '@fontsource/nunito/700.css';
+import '@fontsource/nunito/800.css';
 import './style.css';
 import { activeSlot, requestPersistence } from './game/save';
 import { applyOffline, openSlot, saveNow } from './game/session';

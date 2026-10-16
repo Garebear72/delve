@@ -245,7 +245,8 @@ export function render() {
   renderHint();
   const panel = $('panel');
   let html = '';
-  switch (ui.tab) {
+  switch (ui.tab && tabLocked(ui.tab) ? 'locked' : ui.tab) {
+    case 'locked': html = lockedPanel(ui.tab!); break;
     case 'colony': html = colonyPanel(s, d, ui); break;
     case 'battle': html = battlePanel(s, d, ui); break;
     case 'divine': html = divinePanel(s, d); break;
@@ -277,19 +278,41 @@ function renderTop() {
   morphdom($('topbar'), `<div id="topbar">${chips.join('')}</div>`);
 }
 
+function tabLocked(id: string) {
+  const s = store.state;
+  if (id === 'battle') return !s.run.combatUnlocked;
+  if (id === 'divine') return s.run.depth < 8 && s.meta.prestiges === 0;
+  return false;
+}
+
+function lockedPanel(id: string) {
+  const r = store.state.run;
+  const barracksOpen = r.depth >= 5;
+  const body = id === 'battle'
+    ? `<p>Monsters lurk in the side caverns. To open the Expedition, <b>build a Barracks</b> floor.</p>
+       <p>${barracksOpen
+         ? 'Barracks are unlocked! Go to the Mine, tap any empty level and choose <b>Barracks</b>.'
+         : `Barracks unlock at <b>depth 5</b>. You're at depth <b>${r.depth}</b>. Keep digging!`}</p>`
+    : `<p>The gods take notice of colonies that dig deep. The Divine tab opens at <b>depth 8</b>. You're at depth <b>${r.depth}</b>.</p>
+       <p>This is where you prestige: start a new expedition stronger than before.</p>`;
+  return `<h2>🔒 ${id === 'battle' ? 'Battle' : 'Divine'}</h2>${body}`;
+}
+
 function renderTabs() {
   const s = store.state;
   const tabs: [string, string, string][] = [
     ['mine', 'Mine', icon('i_stone')],
     ['colony', 'Colony', icon('i_pop')],
+    ['battle', 'Battle', icon('sword')],
+    ['divine', 'Divine', icon('i_favor')],
+    ['book', 'Book', icon('i_know')],
+    ['settings', 'Menu', '☰'],
   ];
-  if (s.run.combatUnlocked) tabs.push(['battle', 'Battle', icon('sword')]);
-  if (s.run.depth >= 8 || s.meta.prestiges > 0) tabs.push(['divine', 'Divine', icon('i_favor')]);
-  tabs.push(['book', 'Book', icon('i_know')], ['settings', 'Menu', '☰']);
   const active = ui.tab ?? 'mine';
   const html = tabs.map(([id, name, ic]) => {
-    const cls = active === id || (id === 'mine' && (active === 'build' || active === 'floor')) ? 'on' : '';
-    return `<button id="tab-${id}" class="tab ${cls}" data-tab="${id}">${ic}<span>${name}</span></button>`;
+    const locked = tabLocked(id);
+    const cls = (active === id || (id === 'mine' && (active === 'build' || active === 'floor')) ? 'on' : '') + (locked ? ' locked' : '');
+    return `<button id="tab-${id}" class="tab ${cls}" data-tab="${id}">${locked ? '<i class="lock">🔒</i>' : ''}${ic}<span>${name}</span></button>`;
   }).join('');
   morphdom($('tabs'), `<nav id="tabs">${html}</nav>`);
 }
@@ -303,6 +326,7 @@ function renderHint() {
   else if (d.idle > 0 && r.jobs.miner + r.jobs.farmer === 0) hint = 'You have idle colonists. Give them jobs in Colony.';
   else if (r.depth >= 1 && !r.floors.some(Boolean)) hint = 'Tap an empty level to build a floor on it.';
   else if (d.rates.food < 0 && r.res.food < 20) hint = 'Mushrooms are running low! Add Farmers.';
+  else if (r.depth >= 5 && !r.combatUnlocked) hint = 'Barracks unlocked! Build one on an empty level to open Battle.';
   else if (r.pop >= d.maxPop && !r.floors.some((f) => f?.type === 'bunk')) hint = 'Colony is full. Build a Bunkhouse for more room.';
   const el = $('hint');
   el.textContent = hint;
