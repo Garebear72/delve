@@ -141,7 +141,7 @@ export function battlePanel(s: GameState, d: Derived, ui: UIState) {
     const def = CLASSES[id];
     if (!def.unlock(s)) return `<div class="row locked"><div class="grow"><b>${def.name}</b><div class="sub">🔒 ${def.unlockText}</div></div></div>`;
     return `<div class="row">${icon('worker', def.pal)}<div class="grow"><b>${def.name}</b> <span class="num">${c.plan[id]}</span>
-      <div class="sub">${def.desc} HP ${def.hp}, ATK ${def.atk}${def.heal ? ', heal ' + def.heal : ''}</div></div>
+      <div class="sub">${def.desc} HP ${def.hp} · ${def.atk} dmg every ${def.speed}s${def.heal ? ` · heals ${def.heal}/s` : ''}</div></div>
       ${btn('−', 'plan', id + ':-', c.plan[id] > 0, 'small')}${btn('+', 'plan', id + ':+', planSize < d.squadCap && (c.alive || d.idle > 0), 'small')}</div>`;
   }).join('');
 

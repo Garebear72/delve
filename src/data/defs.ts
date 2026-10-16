@@ -106,16 +106,20 @@ export const GUARDIANS: { name: string; sprite: string; pal: Record<string, stri
 // ---------------------------------------------------------------- combat
 export type ClassId = 'recruit' | 'fighter' | 'cleric' | 'wizard';
 export const CLASS_IDS: ClassId[] = ['recruit', 'fighter', 'cleric', 'wizard'];
+// atk = damage per hit, speed = seconds between that soldier's swings, heal = HP per second (pulsed).
 export const CLASSES: Record<ClassId, {
-  name: string; desc: string; hp: number; atk: number; heal: number; block: number;
+  name: string; desc: string; hp: number; atk: number; speed: number; heal: number; block: number;
   pal: Record<string, string>; unlock: (s: GameState) => boolean; unlockText: string;
 }> = {
-  recruit: { name: 'Recruit', desc: 'Eager. Holds a stick.', hp: 20, atk: 4, heal: 0, block: 0, pal: { c: '#8a6b4a', h: '#6f6559' }, unlock: () => true, unlockText: '' },
-  fighter: { name: 'Fighter', desc: 'Tough. Blocks damage for the squad.', hp: 50, atk: 3, heal: 0, block: 0.5, pal: { c: '#9badb7', h: '#5c6b78' }, unlock: (s) => s.run.research.includes('drill'), unlockText: 'Research Drill Training' },
-  cleric: { name: 'Cleric', desc: 'Heals the squad over time.', hp: 15, atk: 1, heal: 1.5, block: 0, pal: { c: '#f4f4f4', h: '#fbf236' }, unlock: (s) => s.run.research.includes('medicine'), unlockText: 'Research Field Medicine' },
-  wizard: { name: 'Wizard', desc: 'Fragile. Hits very hard.', hp: 12, atk: 14, heal: 0, block: 0, pal: { c: '#8f56c9', h: '#5b2f8a' }, unlock: (s) => s.run.research.includes('arcane'), unlockText: 'Research Arcane Studies' },
+  recruit: { name: 'Recruit', desc: 'Eager. Holds a stick.', hp: 20, atk: 4, speed: 1.0, heal: 0, block: 0, pal: { c: '#8a6b4a', h: '#6f6559' }, unlock: () => true, unlockText: '' },
+  fighter: { name: 'Fighter', desc: 'Tough. Blocks damage for the squad.', hp: 50, atk: 4, speed: 1.3, heal: 0, block: 0.5, pal: { c: '#9badb7', h: '#5c6b78' }, unlock: (s) => s.run.research.includes('drill'), unlockText: 'Research Drill Training' },
+  cleric: { name: 'Cleric', desc: 'Heals the squad every few seconds.', hp: 15, atk: 2, speed: 1.6, heal: 1.5, block: 0, pal: { c: '#f4f4f4', h: '#fbf236' }, unlock: (s) => s.run.research.includes('medicine'), unlockText: 'Research Field Medicine' },
+  wizard: { name: 'Wizard', desc: 'Fragile. Slow, huge arcane blasts.', hp: 12, atk: 30, speed: 2.2, heal: 0, block: 0, pal: { c: '#8f56c9', h: '#5b2f8a' }, unlock: (s) => s.run.research.includes('arcane'), unlockText: 'Research Arcane Studies' },
 };
 export const ZONE_CELLS = 25;
+export const CRIT_CHANCE = 0.05;
+export const MAX_VOLLEYS = 6; // big groups of one class swing in at most this many volleys
+export const HEAL_PULSE = 2; // seconds between healing pulses
 
 export const ENEMIES: Record<string, { name: string; sprite: string; pal: Record<string, string>; item: string; from: number }> = {
   rat: { name: 'Cave Rat', sprite: 'rat', pal: {}, item: 'ratTail', from: 1 },

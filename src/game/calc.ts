@@ -137,11 +137,11 @@ export function gearMult(s: GameState, kind: 'w' | 'a'): number {
 
 export function squadStats(s: GameState, comp = s.run.combat.squad) {
   const c = s.run.combat;
-  let hp = 0, atk = 0, heal = 0, block = 0, n = 0;
+  let hp = 0, dps = 0, heal = 0, block = 0, n = 0;
   for (const id of CLASS_IDS) {
     const k = comp[id]; if (!k) continue;
     const def = CLASSES[id];
-    hp += k * def.hp; atk += k * def.atk; heal += k * def.heal; block += k * def.block; n += k;
+    hp += k * def.hp; dps += (k * def.atk) / def.speed; heal += k * def.heal; block += k * def.block; n += k;
   }
   const am = gearMult(s, 'a'), wm = gearMult(s, 'w');
   const hpMult = am * (1 + 0.2 * div(s, 'stoneskin')) * (s.run.race === 'dwarf' ? 1.1 : 1) * (1 + relicBonus(s, 'hp'));
@@ -150,8 +150,9 @@ export function squadStats(s: GameState, comp = s.run.combat.squad) {
   return {
     size: n,
     maxHp,
-    atk: atk * atkMult,
-    heal: heal * am + maxHp * 0.01,
+    atk: dps * atkMult, // average damage per second, for display
+    atkMult, // multiplies each individual hit
+    heal: heal * am + maxHp * 0.01, // HP per second, delivered in pulses
     block: n ? Math.min(0.75, block / n) : 0,
   };
 }
@@ -172,7 +173,7 @@ export function enemyStats(s: GameState) {
   const c = s.run.combat;
   if (c.mode === 'guardian') {
     const g = GUARDIANS[c.guardian];
-    return { name: g.name, sprite: g.sprite, pal: g.pal, scale: g.scale, hp: g.hp, atk: g.atk, boss: true, guardian: true };
+    return { name: g.name, sprite: g.sprite, pal: g.pal, scale: g.scale, hp: g.hp, atk: g.atk, speed: 1.8, boss: true, guardian: true };
   }
   const boss = c.cell === ZONE_CELLS - 1;
   const z = c.zone - 1;
@@ -182,7 +183,8 @@ export function enemyStats(s: GameState) {
     name: boss ? `${e.name} (Zone Boss)` : e.name,
     sprite: e.sprite, pal: e.pal, scale: boss ? 5 : 3,
     hp: 18 * Math.pow(1.33, z) * grow * (boss ? 6 : 1),
-    atk: 1.5 * Math.pow(1.3, z) * grow * (boss ? 2 : 1),
+    atk: 1.5 * Math.pow(1.3, z) * grow * (boss ? 2 : 1), // damage per second; each hit = atk × speed
+    speed: boss ? 1.4 : 1,
     boss, guardian: false,
   };
 }

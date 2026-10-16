@@ -1,5 +1,8 @@
 // The simulation: advances the game by dt seconds.
-import { ACHIEVEMENTS, BIOMES, BOSS_RELICS, ENEMIES, FLOORS, FLOOR_IDS, GUARDIANS, ITEMS, RELICS, RES_IDS, ZONE_CELLS } from '../data/defs';
+import {
+  ACHIEVEMENTS, BIOMES, BOSS_RELICS, CLASSES, CLASS_IDS, CRIT_CHANCE, ENEMIES, FLOORS, FLOOR_IDS, GUARDIANS, HEAL_PULSE,
+  ITEMS, MAX_VOLLEYS, RELICS, RES_IDS, ZONE_CELLS,
+} from '../data/defs';
 import { derive, Derived, enemyFor, enemyStats, goldMult, levelHp, squadStats } from './calc';
 import { emit, toast } from './events';
 import type { GameState } from './state';
@@ -87,6 +90,7 @@ function spawnEnemy(s: GameState) {
   if (c.mode === 'zone') c.enemyId = enemyFor(c.zone, c.cell);
   const e = enemyStats(s);
   c.enemyHp = c.enemyMax = e.hp;
+  c.eSwing = 0; // a fresh enemy needs a moment before its first attack
 }
 
 export function formSquad(s: GameState, d: Derived) {
@@ -122,27 +126,60 @@ function tickCombat(s: GameState, d: Derived, dt: number) {
 
   if (c.enemyHp <= 0) spawnEnemy(s);
   const sq = squadStats(s);
-  const e = enemyStats(s);
 
-  const out = sq.atk * dt;
-  c.enemyHp -= out; c.dmgOut += out;
-  const incoming = e.atk * (1 - sq.block) * (c.wall > 0 ? 0.25 : 1) * dt;
-  const heal = sq.heal * dt;
-  c.dmgIn += incoming; c.healed += heal;
-  c.squadHp = Math.min(sq.maxHp, c.squadHp - incoming + heal);
-
-  if (c.enemyHp <= 0) onKill(s);
-  else if (c.squadHp <= 0) {
-    c.alive = false;
-    c.squadHp = 0;
-    c.squad = { recruit: 0, fighter: 0, cleric: 0, wizard: 0 };
-    add(s, 'wipes', 1);
-    if (c.mode === 'guardian') {
-      toast(`${GUARDIANS[c.guardian].name} was too much. Your squad got bonked.`, 'bad');
-      c.mode = 'zone'; c.guardian = -1; c.enemyHp = 0;
-    } else toast('Your squad got bonked! Regrouping…', 'bad');
-    emit('wipe');
+  // Each class swings on its own timer. k soldiers of a class split into up to MAX_VOLLEYS
+  // evenly spaced volleys, so a few soldiers hit one by one and big groups stay readable.
+  for (const id of CLASS_IDS) {
+    const k = c.squad[id];
+    if (!k) { c.swing[id] = 0; continue; }
+    const def = CLASSES[id];
+    const volleys = Math.min(k, MAX_VOLLEYS);
+    const interval = def.speed / volleys;
+    c.swing[id] += dt;
+    while (c.swing[id] >= interval && c.alive) {
+      c.swing[id] -= interval;
+      if (c.enemyHp <= 0) spawnEnemy(s);
+      const crit = Math.random() < CRIT_CHANCE;
+      const dmg = def.atk * (k / volleys) * sq.atkMult * (crit ? 2 : 1);
+      c.enemyHp -= dmg;
+      emit('hit', { cls: id, dmg, crit });
+      if (c.enemyHp <= 0) onKill(s);
+    }
   }
+
+  // The enemy strikes back on its own timer.
+  if (c.enemyHp <= 0) spawnEnemy(s);
+  const e = enemyStats(s);
+  c.eSwing += dt;
+  while (c.eSwing >= e.speed && c.alive) {
+    c.eSwing -= e.speed;
+    const dmg = e.atk * e.speed * (1 - sq.block) * (c.wall > 0 ? 0.25 : 1);
+    c.squadHp -= dmg;
+    emit('hurt', { dmg });
+    if (c.squadHp <= 0) { wipe(s); return; }
+  }
+
+  // Healing (Clerics plus a little natural recovery) arrives in pulses.
+  c.healT += dt;
+  while (c.healT >= HEAL_PULSE) {
+    c.healT -= HEAL_PULSE;
+    const amt = Math.min(sq.maxHp - c.squadHp, sq.heal * HEAL_PULSE);
+    if (amt > 0) { c.squadHp += amt; emit('heal', { amt, cleric: c.squad.cleric > 0 }); }
+  }
+  c.squadHp = Math.min(c.squadHp, sq.maxHp);
+}
+
+function wipe(s: GameState) {
+  const c = s.run.combat;
+  c.alive = false;
+  c.squadHp = 0;
+  c.squad = { recruit: 0, fighter: 0, cleric: 0, wizard: 0 };
+  add(s, 'wipes', 1);
+  if (c.mode === 'guardian') {
+    toast(`${GUARDIANS[c.guardian].name} was too much. Your squad got bonked.`, 'bad');
+    c.mode = 'zone'; c.guardian = -1; c.enemyHp = 0;
+  } else toast('Your squad got bonked! Regrouping…', 'bad');
+  emit('wipe');
 }
 
 export function useAbility(s: GameState, which: 'cry' | 'wall') {

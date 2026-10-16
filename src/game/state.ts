@@ -23,10 +23,9 @@ export interface CombatState {
   wall: number;
   wallCd: number;
   autoCast: boolean;
-  // Accumulators the renderer drains for floating numbers.
-  dmgOut: number;
-  dmgIn: number;
-  healed: number;
+  swing: Record<ClassId, number>; // time since each class's last volley
+  eSwing: number; // time since the enemy's last attack
+  healT: number; // time since the last healing pulse
 }
 
 export interface RunState {
@@ -83,7 +82,7 @@ export function newCombat(): CombatState {
   return {
     zone: 1, cell: 0, enemyId: '', enemyHp: 0, enemyMax: 1, mode: 'zone', guardian: -1,
     alive: false, squad: zeroClasses(), plan: { ...zeroClasses(), recruit: 3 }, squadHp: 0, regroup: 0,
-    farm: false, cry: 0, cryCd: 0, wall: 0, wallCd: 0, autoCast: false, dmgOut: 0, dmgIn: 0, healed: 0,
+    farm: false, cry: 0, cryCd: 0, wall: 0, wallCd: 0, autoCast: false, swing: zeroClasses(), eSwing: 0, healT: 0,
   };
 }
 
