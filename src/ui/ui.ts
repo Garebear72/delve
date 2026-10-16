@@ -1,6 +1,6 @@
 // The app shell: top bar, tabs, slide-up sheet, toasts, modals and button handling.
 import morphdom from 'morphdom';
-import { AbilityId, ClassId, JobId, FloorId, RESEARCH, RESOURCES, RES_IDS, RaceId, GodId } from '../data/defs';
+import { AbilityId, BIOMES, ClassId, JobId, FloorId, GUARDIANS, RESEARCH, RESOURCES, RES_IDS, RaceId, GodId } from '../data/defs';
 import * as A from '../game/actions';
 import { canPrestige } from '../game/calc';
 import { on } from '../game/events';
@@ -383,7 +383,8 @@ function renderTop() {
 function tabLocked(id: string) {
   const s = store.state;
   if (id === 'battle') return !s.run.combatUnlocked;
-  if (id === 'divine') return s.run.depth < 8 && s.meta.prestiges === 0;
+  // Opens once the first guardian has ever been beaten (and stays open after your first prestige).
+  if (id === 'divine') return !s.run.guardians.includes(0) && s.meta.prestiges === 0;
   return false;
 }
 
@@ -395,7 +396,9 @@ function lockedPanel(id: string) {
        <p>${barracksOpen
          ? 'Barracks are unlocked! Go to the Mine, tap the gold <b>+</b> on any empty level and choose <b>Barracks</b>.'
          : `Barracks unlock at <b>depth 5</b>. You're at depth <b>${r.depth}</b>. Keep digging!`}</p>`
-    : `<p>The gods take notice of colonies that dig deep. The Divine tab opens at <b>depth 8</b>. You're at depth <b>${r.depth}</b>.</p>
+    : `<p>The gods only take notice of colonies that prove themselves. The Divine tab opens once you <b>defeat ${GUARDIANS[0].name}</b>,
+         the guardian sealing the way into the ${BIOMES[1].name} (depth ${BIOMES[1].from}).</p>
+       <p>${r.depth >= BIOMES[1].from ? 'You\'ve reached it! Challenge it in the <b>Battle</b> tab.' : `You're at depth <b>${r.depth}</b>. Keep digging!`}</p>
        <p>This is where you prestige: start a new expedition stronger than before.</p>`;
   return `<h2>🔒 ${id === 'battle' ? 'Battle' : 'Divine'}</h2>${body}`;
 }

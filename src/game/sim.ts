@@ -323,7 +323,7 @@ function checkProgress(s: GameState) {
   }
   once('copper', r.depth >= BIOMES[1].from, 'Copper veins! Miners now haul up copper.');
   once('iron', r.depth >= BIOMES[3].from, 'Iron! Miners now haul up iron.');
-  once('divine', r.depth >= 8, 'The gods are watching… The Divine tab is open.', 'epic');
+  once('divine', r.guardians.includes(0) && s.meta.prestiges === 0, 'The gods are watching… The Divine tab is open. You can now prestige!', 'epic');
   const g = derive(s).blocked;
   if (g >= 0) once('guard' + g, true, `Something huge blocks the way down: ${GUARDIANS[g].name}. Defeat it in Battle!`, 'epic');
 }
