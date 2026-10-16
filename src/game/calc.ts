@@ -1,6 +1,6 @@
 // Derived numbers: everything computed from state (rates, caps, squad stats).
 import {
-  ACH_BONUS, ADJACENCY, BIOMES, CLASSES, CLASS_IDS, ENEMIES, FLOOR_IDS, FloorId, FOOD_PER_COLONIST, GEAR, GROWTH_BASE, GROWTH_PER_POP, GUARDIANS, JobId,
+  AbilityId, ACH_BONUS, ADJACENCY, BIOMES, CLASSES, CLASS_IDS, ENEMIES, FLOOR_IDS, FloorId, ENEMY_ATK, ENEMY_ATK_GROWTH, ENEMY_HP, ENEMY_HP_GROWTH, FOOD_PER_COLONIST, GEAR, GROWTH_BASE, GROWTH_PER_POP, GUARDIANS, JobId,
   RELICS, RelicEffect, RES_IDS, ResId, ZONE_CELLS,
 } from '../data/defs';
 import type { GameState } from './state';
@@ -22,6 +22,10 @@ export function blockingGuardian(s: GameState): number {
 
 export const levelHp = (level: number) => 200 * Math.pow(1.2, level);
 export const div = (s: GameState, id: string) => s.meta.divine[id] ?? 0;
+
+// Abilities and auto-casting are earned from the skill tree, which isn't built yet.
+export const hasAbility = (_s: GameState, _id: AbilityId) => false;
+export const hasAutoCast = (_s: GameState) => false;
 
 export function relicBonus(s: GameState, effect: RelicEffect): number {
   let b = 0;
@@ -188,13 +192,13 @@ export function enemyStats(s: GameState) {
   }
   const boss = c.cell === ZONE_CELLS - 1;
   const z = c.zone - 1;
-  const grow = 1 + 0.03 * c.cell;
+  const grow = 1 + 0.04 * c.cell;
   const e = ENEMIES[c.enemyId] ?? ENEMIES.rat;
   return {
     name: boss ? `${e.name} (Zone Boss)` : e.name,
     sprite: e.sprite, pal: e.pal, scale: boss ? 5 : 3,
-    hp: 18 * Math.pow(1.33, z) * grow * (boss ? 6 : 1),
-    atk: 1.5 * Math.pow(1.3, z) * grow * (boss ? 2 : 1), // damage per second; each hit = atk × speed
+    hp: ENEMY_HP * Math.pow(ENEMY_HP_GROWTH, z) * grow * (boss ? 6 : 1),
+    atk: ENEMY_ATK * Math.pow(ENEMY_ATK_GROWTH, z) * grow * (boss ? 2 : 1), // damage per second; each hit = atk × speed
     speed: boss ? 1.4 : 1,
     boss, guardian: false,
   };

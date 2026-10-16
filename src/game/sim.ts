@@ -1,9 +1,9 @@
 // The simulation: advances the game by dt seconds.
 import {
-  ACHIEVEMENTS, BIOMES, BOSS_RELICS, CLASSES, CLASS_IDS, CRIT_CHANCE, ENEMIES, FLOORS, FLOOR_IDS, GUARDIANS, HEAL_PULSE,
+  ABILITIES, AbilityId, ACHIEVEMENTS, BIOMES, BOSS_RELICS, CLASSES, CLASS_IDS, CRIT_CHANCE, ENEMIES, FLOORS, FLOOR_IDS, GUARDIANS, HEAL_PULSE,
   FOOD_PER_BIRTH, ITEMS, KILL_HEAL, MAX_VOLLEYS, RELICS, RES_IDS, STARVE_INTERVAL, ZONE_CELLS,
 } from '../data/defs';
-import { derive, Derived, enemyFor, enemyStats, goldMult, levelHp, squadStats } from './calc';
+import { derive, Derived, enemyFor, enemyStats, goldMult, hasAbility, hasAutoCast, levelHp, squadStats } from './calc';
 import { emit, toast } from './events';
 import type { GameState } from './state';
 
@@ -138,9 +138,9 @@ function tickCombat(s: GameState, d: Derived, dt: number) {
     return;
   }
 
-  if (c.autoCast && s.run.research.includes('autoCast')) {
+  if (c.autoCast && hasAutoCast(s)) {
     if (c.cryCd <= 0) useAbility(s, 'cry');
-    if (c.wallCd <= 0 && s.run.research.includes('shieldWall')) useAbility(s, 'wall');
+    if (c.wallCd <= 0) useAbility(s, 'wall');
   }
 
   if (c.enemyHp <= 0) spawnEnemy(s);
@@ -201,11 +201,12 @@ function wipe(s: GameState) {
   emit('wipe');
 }
 
-export function useAbility(s: GameState, which: 'cry' | 'wall') {
+export function useAbility(s: GameState, which: AbilityId) {
   const c = s.run.combat;
-  if (!c.alive) return;
-  if (which === 'cry' && c.cryCd <= 0) { c.cry = 10; c.cryCd = 45; emit('ability', 'cry'); }
-  if (which === 'wall' && c.wallCd <= 0 && s.run.research.includes('shieldWall')) { c.wall = 8; c.wallCd = 60; emit('ability', 'wall'); }
+  if (!c.alive || !hasAbility(s, which)) return;
+  const a = ABILITIES[which];
+  if (which === 'cry' && c.cryCd <= 0) { c.cry = a.duration; c.cryCd = a.cooldown; emit('ability', 'cry'); }
+  if (which === 'wall' && c.wallCd <= 0) { c.wall = a.duration; c.wallCd = a.cooldown; emit('ability', 'wall'); }
 }
 
 function onKill(s: GameState) {

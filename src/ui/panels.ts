@@ -1,12 +1,12 @@
 // HTML for each sheet panel. Buttons use data-act / data-arg and are handled in ui.ts.
 import {
-  ACHIEVEMENTS, ACH_BONUS, ADJACENCY, CLASSES, CLASS_IDS, DIVINE, ENEMIES, FLOORS, FLOOR_IDS, FOOD_PER_COLONIST, GEAR, GODS, GUARDIANS,
+  ABILITIES, AbilityId, ACHIEVEMENTS, ACH_BONUS, ADJACENCY, CLASSES, CLASS_IDS, DIVINE, ENEMIES, FLOORS, FLOOR_IDS, FOOD_PER_COLONIST, GEAR, GODS, GUARDIANS,
   ITEMS, JOBS, JOB_IDS, RACES, RELICS, RESEARCH, RESOURCES, RES_IDS, ResId,
 } from '../data/defs';
 import {
   canAfford, divineCost, floorBuildCost, floorUpgradeCost, gearLevelCost, gearTierCost, gearTierReady, reliquarySlots,
 } from '../game/actions';
-import { biomeAt, canPrestige, Derived, div, enemyStats, floorPower, gearMult, pendingFavor, squadStats } from '../game/calc';
+import { biomeAt, canPrestige, Derived, div, enemyStats, hasAbility, hasAutoCast, floorPower, gearMult, pendingFavor, squadStats } from '../game/calc';
 import { hasBackup, listSlots } from '../game/save';
 import type { GameState } from '../game/state';
 import { store } from '../game/store';
@@ -128,11 +128,13 @@ export function battlePanel(s: GameState, d: Derived, ui: UIState) {
   const planSize = Object.values(c.plan).reduce((a, b) => a + b, 0);
   const e = enemyStats(s);
 
-  const abilities = [
-    btn(c.cryCd > 0 ? `Battle Cry ${Math.ceil(c.cryCd)}s` : 'Battle Cry', 'ability', 'cry', c.alive && c.cryCd <= 0, 'ability cry'),
-    r.research.includes('shieldWall') ? btn(c.wallCd > 0 ? `Shield Wall ${Math.ceil(c.wallCd)}s` : 'Shield Wall', 'ability', 'wall', c.alive && c.wallCd <= 0, 'ability wall') : '',
-    r.research.includes('autoCast') ? btn(c.autoCast ? 'Auto-cast: ON' : 'Auto-cast: OFF', 'autocast', '', true, c.autoCast ? 'on' : '') : '',
-  ].join('');
+  const cds: Record<AbilityId, number> = { cry: c.cryCd, wall: c.wallCd };
+  const known = (Object.keys(ABILITIES) as AbilityId[]).filter((id) => hasAbility(s, id));
+  const abilities = known.length
+    ? known.map((id) => `<div class="row"><div class="grow"><b>${ABILITIES[id].name}</b><div class="sub">${ABILITIES[id].desc} Cooldown ${ABILITIES[id].cooldown}s.</div></div>
+        ${btn(cds[id] > 0 ? `${Math.ceil(cds[id])}s` : 'Use', 'ability', id, c.alive && cds[id] <= 0, 'ability ' + id)}</div>`).join('')
+      + (hasAutoCast(s) ? btn(c.autoCast ? 'Auto-cast: ON' : 'Auto-cast: OFF', 'autocast', '', true, c.autoCast ? 'on' : '') : '')
+    : '<div class="sub">No abilities yet. They\'ll be earned from the skill tree.</div>';
 
   const guardian = d.blocked >= 0 ? (() => {
     const g = GUARDIANS[d.blocked];
@@ -165,7 +167,7 @@ export function battlePanel(s: GameState, d: Derived, ui: UIState) {
 
   return `
     <canvas id="battle" class="battle"></canvas>
-    <div class="abilities">${abilities}</div>
+    <div>${abilities}</div>
     ${guardian}
     <div class="row"><div class="grow"><b>${c.farm ? 'Staying in zone ' + c.zone : 'Pushing onward'}</b><div class="sub">${c.farm ? 'Repeat this zone for loot and gold.' : 'Advance after each zone boss.'}</div></div>${btn(c.farm ? 'Push on' : 'Stay here', 'farm')}</div>
     <h3>Squad <span class="sub">${planSize} / ${d.squadCap} · reforms in ${fmt(d.regroupTime)}s</span></h3>

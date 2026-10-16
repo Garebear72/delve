@@ -117,7 +117,19 @@ export const CLASSES: Record<ClassId, {
   wizard: { name: 'Wizard', desc: 'Fragile. Slow, huge arcane blasts.', hp: 12, atk: 30, speed: 2.2, heal: 0, block: 0, pal: { c: '#8f56c9', h: '#5b2f8a' }, unlock: (s) => s.run.research.includes('arcane'), unlockText: 'Research Arcane Studies' },
 };
 export const ZONE_CELLS = 25;
+// Zone 1 enemy stats and how fast they grow per zone (bosses ×6 HP, ×2 attack).
+export const ENEMY_HP = 50;
+export const ENEMY_HP_GROWTH = 1.4;
+export const ENEMY_ATK = 5; // damage per second
+export const ENEMY_ATK_GROWTH = 1.32;
 export const CRIT_CHANCE = 0.05;
+
+// Combat abilities. None are free: each is earned from the skill tree.
+export type AbilityId = 'cry' | 'wall';
+export const ABILITIES: Record<AbilityId, { name: string; desc: string; duration: number; cooldown: number }> = {
+  cry: { name: 'Battle Cry', desc: 'Your squad deals double damage for 10s.', duration: 10, cooldown: 45 },
+  wall: { name: 'Shield Wall', desc: 'Your squad takes 75% less damage for 8s.', duration: 8, cooldown: 60 },
+};
 export const MAX_VOLLEYS = 6; // big groups of one class swing in at most this many volleys
 export const HEAL_PULSE = 2; // seconds between healing pulses
 export const KILL_HEAL = 0.25; // share of max HP the squad recovers per enemy defeated (skills may raise this)
@@ -182,13 +194,11 @@ export const RESEARCH: ResearchDef[] = [
   { id: 'drill', name: 'Drill Training', desc: 'Unlocks the Fighter class.', cost: { knowledge: 40 }, req: (s) => s.run.maxZone >= 3 },
   { id: 'bunkBeds', name: 'Bunk Beds', desc: 'Bunkhouses hold 50% more.', cost: { knowledge: 50, stone: 150 }, req: () => true },
   { id: 'medicine', name: 'Field Medicine', desc: 'Unlocks the Cleric class.', cost: { knowledge: 90, food: 100 }, req: (s) => s.run.maxZone >= 5 },
-  { id: 'shieldWall', name: 'Shield Wall', desc: 'Unlocks the Shield Wall ability.', cost: { knowledge: 70 }, req: (s) => s.run.research.includes('drill') },
   { id: 'haggling', name: 'Haggling', desc: '+50% gold.', cost: { knowledge: 120, gold: 50 }, req: (s) => s.run.maxZone >= 4 },
   { id: 'indexCards', name: 'Index Cards', desc: '+50% knowledge.', cost: { knowledge: 100 }, req: () => true },
   { id: 'masonry', name: 'Masonry', desc: 'Floors cost 25% less.', cost: { knowledge: 150, stone: 300 }, req: (s) => s.run.depth >= 12 },
   { id: 'arcane', name: 'Arcane Studies', desc: 'Unlocks the Wizard class.', cost: { knowledge: 300, copper: 100 }, req: (s) => s.run.maxZone >= 9 },
   { id: 'deepPicks', name: 'Deep-Core Picks', desc: '+100% digging and mining.', cost: { knowledge: 400, copper: 200 }, req: (s) => s.run.depth >= 20 },
-  { id: 'autoCast', name: 'Drill Instructor', desc: 'Abilities can cast themselves.', cost: { knowledge: 500, gold: 300 }, req: (s) => s.run.maxZone >= 8 },
   { id: 'ironSmelt', name: 'Iron Smelting', desc: 'Unlocks iron gear.', cost: { knowledge: 800, iron: 30 }, req: (s) => s.run.depth >= 35 },
 ];
 

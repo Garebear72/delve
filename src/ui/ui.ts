@@ -1,6 +1,6 @@
 // The app shell: top bar, tabs, slide-up sheet, toasts, modals and button handling.
 import morphdom from 'morphdom';
-import { ClassId, JobId, FloorId, RESEARCH, RESOURCES, RES_IDS, RaceId, GodId } from '../data/defs';
+import { AbilityId, ClassId, JobId, FloorId, RESEARCH, RESOURCES, RES_IDS, RaceId, GodId } from '../data/defs';
 import * as A from '../game/actions';
 import { canPrestige } from '../game/calc';
 import { on } from '../game/events';
@@ -190,7 +190,7 @@ function act(name: string, arg: string) {
       else ui.armDemolish = Number(arg);
       break;
     case 'plan': A.setPlan(s, a as ClassId, sign === '+' ? (ui.bulk || 1e9) : -(ui.bulk || 1e9)); break;
-    case 'ability': useAbility(s, arg as 'cry' | 'wall'); break;
+    case 'ability': useAbility(s, arg as AbilityId); break;
     case 'autocast': s.run.combat.autoCast = !s.run.combat.autoCast; break;
     case 'guardian': startGuardian(s); break;
     case 'farm': s.run.combat.farm = !s.run.combat.farm; break;
