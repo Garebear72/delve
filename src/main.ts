@@ -1,0 +1,64 @@
+import '@fontsource/pixelify-sans/400.css';
+import '@fontsource/pixelify-sans/700.css';
+import './style.css';
+import { activeSlot, requestPersistence } from './game/save';
+import { applyOffline, openSlot, saveNow } from './game/session';
+import { advance } from './game/sim';
+import { refresh, store } from './game/store';
+import { CombatView } from './render/combat';
+import { battleCanvas, buildShell, createMine, frameUI, mine, pipCanvas, render, showOffline } from './ui/ui';
+
+buildShell();
+createMine();
+const report = openSlot(activeSlot());
+requestPersistence();
+render();
+if (report) showOffline(report);
+
+const combat = new CombatView();
+let last = performance.now();
+let uiTimer = 0;
+let saveTimer = 0;
+
+function frame(now: number) {
+  const dt = Math.min(0.25, Math.max(0, (now - last) / 1000));
+  last = now;
+  advance(store.state, dt * store.speed);
+  refresh();
+
+  const t = now / 1000;
+  mine.render(store.state, store.d, t, dt);
+  const canvas = battleCanvas() ?? pipCanvas();
+  if (canvas && store.state.run.combatUnlocked) combat.draw(canvas, store.state, store.d, t, dt, canvas.id === 'pip');
+
+  uiTimer += dt;
+  if (uiTimer > 0.25) { uiTimer = 0; render(); }
+  frameUI();
+
+  saveTimer += dt;
+  if (saveTimer > 10) { saveTimer = 0; saveNow(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// Save when leaving; catch up on time spent away when returning.
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    saveNow();
+    hiddenAt = Date.now();
+  } else if (hiddenAt) {
+    const away = (Date.now() - hiddenAt) / 1000;
+    hiddenAt = 0;
+    if (away > 5) {
+      showOffline(applyOffline(away));
+      render();
+    }
+    last = performance.now();
+  }
+});
+addEventListener('pagehide', () => saveNow());
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  navigator.serviceWorker.register('./sw.js').catch(() => { /* offline support is optional */ });
+}
