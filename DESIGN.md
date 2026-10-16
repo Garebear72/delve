@@ -130,14 +130,33 @@ Goofy: **Snorg**, God of Snacks · **Pebble**, God of Rocks (only cares about ro
 
 ---
 
-## 7. Skills
+## 7. Skills (proposed — awaiting confirmation)
 
-- **Run skill trees** (reset each run): separate trees for Combat, Digging, Economy/Passive, Crafting, Colony, etc.
-- **Divine Tree** (permanent): bought with prestige currency, grows across runs.
-- **Mirrored play-style branches:**
-  - **Hands-On** — tap combos, ability-trigger bonuses, mini-game multipliers.
-  - **Hands-Off** — automation, offline gains, auto-casting.
-- **Automation is unlocked**, not given (like Trimps' AutoFight) — the idle side is a reward.
+### Skills level by doing (RuneScape-style)
+- Five skills to start: **Combat**, **Digging**, **Colony**, **Hands-On** (tapping/combos), **Hands-Off** (automation/offline). More unlock later (Magic, Smithing, …).
+- Each skill gains XP from its own activity: kills → Combat, levels dug and miner work → Digging, colony growth/production → Colony, taps and combos → Hands-On, time running idle/offline → Hands-Off.
+- **Levels 1–99 on the RuneScape curve**: early levels come in minutes, level 50 takes days, 99 takes months. Idle and offline XP is reduced versus active play, so you can't max a skill overnight while AFK.
+- **Skill levels and XP are permanent** — they never reset on prestige.
+
+### Skill points
+- Each skill level = 1 point for **that skill's tree**.
+- **General points** (spend in any tree) come from achievements and first-time feats (each guardian, zone milestones, first prestige…), so they're earned once, not farmed.
+
+### Major trees (one per skill)
+- A **big node map** you can pan, organised into **tiers**: spend N points in a tree to open its next tier, so there's always a clear next goal.
+- Node types: small passives (+3% damage), larger **notables**, **abilities** (actives like Battle Cry), **keystones** with big trade-offs (Glass Cannon: +100% damage, −50% HP), and **choice nodes** (pick one of two; the other locks).
+- Allocations persist across runs. **Respec only when you prestige.**
+
+### Run perks (per run)
+- A smaller per-run board fed by **run points** from zone bosses and guardians this run.
+- Resets every prestige; can be **respecced mid-run for gold**.
+
+### Abilities & loadout
+- Abilities are only earned from trees. You **equip a limited loadout** (start with 2 slots; more from nodes).
+- Auto-casting is a Hands-Off tree unlock.
+
+### Divine Tree
+- Unchanged: permanent upgrades bought with Divine Favor.
 
 ---
 

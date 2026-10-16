@@ -89,8 +89,14 @@ export class MineView {
     canvas.addEventListener('pointercancel', end);
 
     on('tap', (t: { power: number; combo: number }) => this.burst(t.power, t.combo));
-    on('tapBlocked', () => {
+    on('tapBlocked', (t: { stone: number }) => {
       this.ring(this.lastTap.x, this.lastTap.y, '#d95763');
+      if (t.stone > 0) {
+        this.particles.push({
+          x: this.lastTap.x - 12, y: this.lastTap.y - 18, vx: 0, vy: -70, life: 0, max: 0.8,
+          color: '#b0a08f', size: 0, text: '+' + t.stone.toFixed(1) + ' stone', small: true,
+        });
+      }
       for (let i = 0; i < 6; i++) this.spark(this.sealX, this.front.y - 8);
     });
     on('dug', () => this.dugBurst());

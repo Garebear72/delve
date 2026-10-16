@@ -29,11 +29,12 @@ export function tapDig(s: GameState) {
   combo = now - lastTapAt < COMBO_WINDOW ? combo + 1 : 1;
   lastTapAt = now;
   if (combo > (s.meta.lifetime.bestCombo ?? 0)) s.meta.lifetime.bestCombo = combo;
-  if (d.blocked >= 0) { emit('tapBlocked'); return false; }
   const power = d.tapPower * (1 + Math.min(COMBO_MAX, combo * COMBO_STEP));
-  s.run.dig += power;
+  // Every tap knocks loose some stone, even against a guardian's seal.
   const stone = Math.min(d.caps.stone - s.run.res.stone, 1 + power * 0.2);
   if (stone > 0) { s.run.res.stone += stone; add(s, 'res.stone', stone); }
+  if (d.blocked >= 0) { emit('tapBlocked', { stone }); return false; }
+  s.run.dig += power;
   emit('tap', { power, combo });
   digCheck(s);
   return true;
