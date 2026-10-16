@@ -4,7 +4,7 @@ import { div } from './calc';
 import { setQuiet, toast } from './events';
 import { loadSlot, saveSlot, setActiveSlot } from './save';
 import { catchUp } from './sim';
-import { bonuses } from './skills';
+import { bonuses, reconcileTrees } from './skills';
 import { GameState, newGame } from './state';
 import { refresh, store } from './store';
 
@@ -53,6 +53,7 @@ export function openSlot(id: number): OfflineReport | null {
   store.state = loaded ?? newGame();
   store.slot = id;
   setActiveSlot(id);
+  checkTrees();
   refresh();
   if (!loaded) { saveNow(); return null; }
   const away = (Date.now() - store.state.savedAt) / 1000;
@@ -61,6 +62,12 @@ export function openSlot(id: number): OfflineReport | null {
 
 export function replaceState(s: GameState) {
   store.state = s;
+  checkTrees();
   refresh();
   saveNow();
+}
+
+/** Skill rules changed? Refund any tree that's over its point budget. */
+function checkTrees() {
+  if (reconcileTrees(store.state)) toast('Skill points changed: over-budget skill trees were refunded. Spend your points again in the Skills tab.', 'epic');
 }

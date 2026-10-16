@@ -11,6 +11,7 @@ export const SKILLS: Record<SkillId, { name: string; icon: string; desc: string 
   handsOff: { name: 'Hands-Off', icon: '🌙', desc: 'Earned while the colony runs on its own, especially offline.' },
 };
 export const MAX_LEVEL = 99;
+export const POINT_EVERY = 5; // one skill point every 5 levels (20 per skill by level 99)
 
 /** Every stat a node or perk can raise. Percentages are fractions (0.05 = +5%). */
 export type Stat =
@@ -44,7 +45,7 @@ export interface NodeDef {
 }
 
 /** Points that must be spent in a tree before each tier opens. */
-export const TIER_REQ = [0, 3, 8, 15];
+export const TIER_REQ = [0, 2, 5, 9];
 
 export const NODES: NodeDef[] = [
   // ---------------------------------------------------------------- Combat
@@ -125,13 +126,14 @@ export const PERK_RESPEC_BASE = 25; // gold; triples with each respec in a run
 
 // ---------------------------------------------------------------- XP sources
 export const XP = {
-  killBase: 2, // × zone^1.1 per kill (zone bosses ×5)
-  guardianBase: 400, // × (guardian number)² per guardian
-  levelBase: 80, // × 1.1^depth per level dug
-  birth: 5, // per new colonist
-  build: 30, // per floor built or upgraded
-  tap: 1, // per tap, plus up to +1 more at a 50+ combo
-  idlePerSec: 0.05, // Hands-Off while online
-  offlinePerSec: 0.25, // Hands-Off while offline (a night ≈ level 22, a week ≈ level 50)
+  killBase: 0.4, // × zone^1.1 per kill (zone bosses ×5)
+  guardianBase: 100, // × (guardian number)² per guardian
+  levelBase: 15, // × 1.1^depth per level dug
+  birth: 1, // per new colonist
+  build: 6, // per floor built or upgraded
+  tap: 0.05, // per tap, plus up to +0.05 more at a 50+ combo (an hour of nonstop tapping ≈ level 14)
+  tapXpPerSec: 5, // taps beyond this many per second give no XP
+  idlePerSec: 0.01, // Hands-Off while online
+  offlinePerSec: 0.03, // Hands-Off while offline (a week away ≈ level 28)
   offlineMult: 0.3, // every other skill while offline
 };

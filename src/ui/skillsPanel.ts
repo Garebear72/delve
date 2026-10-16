@@ -1,7 +1,7 @@
 // The Skills tab: skill levels, the node map for each tree, and run perks.
-import { NODES, NODE_BY_ID, NodeKind, PERKS, SKILLS, SKILL_IDS, SkillId, TIER_REQ } from '../data/skills';
+import { NODES, NODE_BY_ID, NodeKind, PERKS, POINT_EVERY, SKILLS, SKILL_IDS, SkillId, TIER_REQ } from '../data/skills';
 import {
-  generalEarned, generalFree, learnState, levelOf, perkFree, perkRespecCost, perkSpent, rank, skillLevel, skillXp,
+  learnState, levelOf, nextPointLevel, perkFree, perkRespecCost, perkSpent, rank, skillLevel, skillXp,
   treeFree, treePoints, treeSpent, xpForLevel,
 } from '../game/skills';
 import type { GameState } from '../game/state';
@@ -16,7 +16,7 @@ const W = 330, CX = W / 2, COL = 70, TIER_H = 176, ROW_H = 80, TOP = 34;
 const pos = (n: { tier: number; row?: number; col: number }) => ({ x: CX + n.col * COL, y: TOP + n.tier * TIER_H + (n.row ?? 0) * ROW_H + 44 });
 
 export function unspentPoints(s: GameState) {
-  return SKILL_IDS.reduce((a, t) => a + treeFree(s, t), 0) + generalFree(s) + perkFree(s);
+  return SKILL_IDS.reduce((a, t) => a + treeFree(s, t), 0) + perkFree(s);
 }
 
 export function skillsPanel(s: GameState, ui: SkillsUI) {
@@ -36,16 +36,16 @@ export function skillsPanel(s: GameState, ui: SkillsUI) {
     const frac = lvl >= 99 ? 1 : (xp - lo) / Math.max(1, hi - lo);
     detail = `<div class="skdetail"><div class="sk-top"><b>${SKILLS[id].icon} ${SKILLS[id].name} level ${lvl}</b>
       <span class="sub">${lvl >= 99 ? 'Max level' : `${fmt(xp - lo)} / ${fmt(hi - lo)} XP`}</span></div>
-      <span class="xpbar"><i style="width:${(frac * 100).toFixed(1)}%"></i></span></div>`;
+      <span class="xpbar"><i style="width:${(frac * 100).toFixed(1)}%"></i></span>
+      ${lvl < 99 ? `<span class="sub">Next skill point at level ${nextPointLevel(lvl)}</span>` : ''}</div>`;
   }
 
-  const gen = generalFree(s);
   return `
-    <h3>Skills <span class="sub">General points: <b class="${gen ? 'good' : ''}">${gen}</b> free of ${generalEarned(s)}</span></h3>
+    <h3>Skills</h3>
     <div class="skgrid">${chips}</div>
     ${detail}
     ${ui.skillTree === 'run' ? perksView(s) : treeView(s, ui.skillTree, ui.skillNode)}
-    <p class="sub">Skills level up by doing. Each level gives a point for that skill's tree. General points come from achievements, guardians and zone milestones, and work in any tree.</p>`;
+    <p class="sub">Skills level up by doing. Every ${POINT_EVERY} levels earns a point for that skill's tree.</p>`;
 }
 
 function treeView(s: GameState, tree: SkillId, selected: string) {
@@ -83,7 +83,7 @@ function treeView(s: GameState, tree: SkillId, selected: string) {
   const card = sel && sel.tree === tree ? (() => {
     const st = learnState(s, sel.id);
     const r = rank(s, sel.id);
-    const pool = tf > 0 ? `uses 1 ${SKILLS[tree].name} point` : 'uses 1 general point';
+    const pool = `uses 1 ${SKILLS[tree].name} point`;
     return `<div class="node-card k-${sel.kind}">
       <div class="nc-head"><span class="nc-icon">${sel.icon}</span><div class="grow"><b>${sel.name}</b>
         <div class="sub">${KIND[sel.kind]}${sel.max > 1 ? ` · rank ${r}/${sel.max}` : r ? ' · learned' : ''}</div></div>

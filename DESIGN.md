@@ -139,8 +139,8 @@ Goofy: **Snorg**, God of Snacks · **Pebble**, God of Rocks (only cares about ro
 - **Skill levels and XP are permanent** — they never reset on prestige.
 
 ### Skill points
-- Each skill level = 1 point for **that skill's tree**.
-- **General points** (spend in any tree) come from achievements and first-time feats (each guardian, zone milestones, first prestige…), so they're earned once, not farmed.
+- **One point every 5 levels** of a skill, for **that skill's tree only** (20 per skill at 99). No general/free points.
+- XP is slow by design: the first hour gives ~0 points; Hands-On XP counts at most 5 taps per second.
 
 ### Major trees (one per skill)
 - A **big node map** you can pan, organised into **tiers**: spend N points in a tree to open its next tier, so there's always a clear next goal.

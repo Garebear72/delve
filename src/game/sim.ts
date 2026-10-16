@@ -233,7 +233,7 @@ function onKill(s: GameState) {
     gainRelic(s, g.relic);
     addXp(s, 'combat', XP.guardianBase * Math.pow(c.guardian + 1, 2));
     r.perkPoints += PERK_POINTS_PER_GUARDIAN;
-    toast(`${g.name} has fallen! The way down is open. +${PERK_POINTS_PER_GUARDIAN} run perk points${first ? ', +2 general skill points' : ''}.`, 'epic');
+    toast(`${g.name} has fallen! The way down is open. +${PERK_POINTS_PER_GUARDIAN} run perk points.`, 'epic');
     c.mode = 'zone'; c.guardian = -1; c.enemyHp = 0;
     c.squadHp = squadStats(s).maxHp;
     return;

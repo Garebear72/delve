@@ -22,6 +22,8 @@ const scale = (cost: Cost, m: number): Cost =>
 // Tap combo: keep tapping without a long pause for up to +50% tap power.
 let combo = 0;
 let lastTapAt = 0;
+let xpWindowStart = 0;
+let xpTaps = 0;
 export function tapDig(s: GameState) {
   const d = derive(s);
   const b = bonuses(s);
@@ -30,7 +32,9 @@ export function tapDig(s: GameState) {
   combo = now - lastTapAt < COMBO_WINDOW + b.comboWindow ? combo + 1 : 1;
   lastTapAt = now;
   if (combo > (s.meta.lifetime.bestCombo ?? 0)) s.meta.lifetime.bestCombo = combo;
-  addXp(s, 'handsOn', XP.tap * (1 + Math.min(combo, 50) / 50));
+  // Hands-On XP counts at most XP.tapXpPerSec taps per second, however many fingers are drumming.
+  if (now - xpWindowStart > 1000) { xpWindowStart = now; xpTaps = 0; }
+  if (++xpTaps <= XP.tapXpPerSec) addXp(s, 'handsOn', XP.tap * (1 + Math.min(combo, 50) / 50));
   const power = d.tapPower * (1 + Math.min(COMBO_MAX + b.combo, combo * COMBO_STEP));
   // Every tap knocks loose some stone, even against a guardian's seal.
   const stone = Math.min(d.caps.stone - s.run.res.stone, (1 + power * 0.2) * (1 + b.tapStone));

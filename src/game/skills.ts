@@ -1,7 +1,7 @@
 // Skill levels (RuneScape curve), skill points, tree learning rules, run perks and stat bonuses.
 import { ABILITIES, AbilityId } from '../data/defs';
 import {
-  MAX_LEVEL, NODES, NODE_BY_ID, PERKS, PERK_RESPEC_BASE, SKILLS, SKILL_IDS, SkillId, Stat, STATS, TIER_REQ, XP,
+  MAX_LEVEL, NODES, NODE_BY_ID, PERKS, PERK_RESPEC_BASE, POINT_EVERY, SKILLS, SKILL_IDS, SkillId, Stat, STATS, TIER_REQ, XP,
 } from '../data/skills';
 import { toast } from './events';
 import type { GameState } from './state';
@@ -43,8 +43,8 @@ export function addXp(s: GameState, id: SkillId, amount: number) {
   s.meta.skills[id] = skillXp(s, id) + amount * mult;
   const after = skillLevel(s, id);
   if (after > before) {
-    const n = after - before;
-    toast(`${SKILLS[id].icon} ${SKILLS[id].name} level ${after}! +${n} skill point${n > 1 ? 's' : ''}`, 'good');
+    const pts = pointsAtLevel(after) - pointsAtLevel(before);
+    toast(`${SKILLS[id].icon} ${SKILLS[id].name} level ${after}!${pts ? ` +${pts} skill point${pts > 1 ? 's' : ''}` : ''}`, pts ? 'epic' : 'good');
   }
 }
 
@@ -76,17 +76,26 @@ export function bonuses(s: GameState): Record<Stat, number> {
 export const rank = (s: GameState, id: string) => s.meta.alloc[id] ?? 0;
 export const treeSpent = (s: GameState, tree: SkillId) =>
   NODES.reduce((a, n) => a + (n.tree === tree ? rank(s, n.id) : 0), 0);
-export const treePoints = (s: GameState, tree: SkillId) => skillLevel(s, tree) - 1;
+/** Skill points come only from leveling that skill: one every POINT_EVERY levels, plus one at 99. */
+export const pointsAtLevel = (level: number) => Math.floor(level / POINT_EVERY) + (level >= MAX_LEVEL ? 1 : 0);
+export const treePoints = (s: GameState, tree: SkillId) => pointsAtLevel(skillLevel(s, tree));
 export const treeFree = (s: GameState, tree: SkillId) => Math.max(0, treePoints(s, tree) - treeSpent(s, tree));
+/** The next level that grants a point. */
+export const nextPointLevel = (level: number) => (level >= MAX_LEVEL ? MAX_LEVEL : Math.min(MAX_LEVEL, (Math.floor(level / POINT_EVERY) + 1) * POINT_EVERY));
 
-/** General points: one per achievement, two per guardian ever slain, one per 5 best zones, three for prestiging. */
-export function generalEarned(s: GameState) {
-  const guardians = [0, 1, 2, 3].filter((i) => (s.meta.bestiary['g' + i] ?? 0) > 0).length;
-  return s.meta.achievements.length + 2 * guardians + Math.floor(s.meta.bestZone / 5) + (s.meta.prestiges > 0 ? 3 : 0);
-}
-export function generalFree(s: GameState) {
-  const used = SKILL_IDS.reduce((a, t) => a + Math.max(0, treeSpent(s, t) - treePoints(s, t)), 0);
-  return Math.max(0, generalEarned(s) - used);
+/** Refund any tree that has more points spent than its skill level allows (e.g. after rule changes). */
+export function reconcileTrees(s: GameState): boolean {
+  let refunded = false;
+  for (const t of SKILL_IDS) {
+    if (treeSpent(s, t) <= treePoints(s, t)) continue;
+    for (const n of NODES) if (n.tree === t) delete s.meta.alloc[n.id];
+    refunded = true;
+  }
+  if (refunded) {
+    s.meta.loadout = s.meta.loadout.filter((a) => knowsAbility(s, a));
+    changed();
+  }
+  return refunded;
 }
 
 export function learnState(s: GameState, id: string): { ok: boolean; reason: string } {
@@ -102,8 +111,9 @@ export function learnState(s: GameState, id: string): { ok: boolean; reason: str
     const other = NODES.find((o) => o.group === n.group && o.id !== id && rank(s, o.id) > 0);
     if (other) return { ok: false, reason: `You chose ${other.name}. Choices can be changed when you prestige.` };
   }
-  if (treeFree(s, n.tree) < 1 && generalFree(s) < 1) {
-    return { ok: false, reason: `No points. Level up ${SKILLS[n.tree].name} or earn general points.` };
+  if (treeFree(s, n.tree) < 1) {
+    const lvl = skillLevel(s, n.tree);
+    return { ok: false, reason: `No ${SKILLS[n.tree].name} points. Next point at level ${nextPointLevel(lvl)}.` };
   }
   return { ok: true, reason: '' };
 }
