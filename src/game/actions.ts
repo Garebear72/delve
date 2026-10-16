@@ -4,7 +4,8 @@ import { derive, div, floorCostMult, pendingFavor, canPrestige } from './calc';
 import { emit, toast } from './events';
 import { digCheck, add } from './sim';
 import { addXp, bonuses, respecTrees } from './skills';
-import { XP } from '../data/skills';
+import { TAP_CRIT_MULT, XP } from '../data/skills';
+import { markInput } from './input';
 import { GameState, newRun } from './state';
 
 type Cost = Partial<Record<ResId, number>>;
@@ -35,13 +36,15 @@ export function tapDig(s: GameState) {
   // Hands-On XP counts at most XP.tapXpPerSec taps per second, however many fingers are drumming.
   if (now - xpWindowStart > 1000) { xpWindowStart = now; xpTaps = 0; }
   if (++xpTaps <= XP.tapXpPerSec) addXp(s, 'handsOn', XP.tap * (1 + Math.min(combo, 50) / 50));
-  const power = d.tapPower * (1 + Math.min(COMBO_MAX + b.combo, combo * COMBO_STEP));
+  markInput();
+  const crit = Math.random() < b.tapCrit;
+  const power = d.tapPower * (1 + Math.min(COMBO_MAX + b.combo, combo * COMBO_STEP)) * (crit ? TAP_CRIT_MULT + b.tapCritDmg : 1);
   // Every tap knocks loose some stone, even against a guardian's seal.
   const stone = Math.min(d.caps.stone - s.run.res.stone, (1 + power * 0.2) * (1 + b.tapStone));
   if (stone > 0) { s.run.res.stone += stone; add(s, 'res.stone', stone); }
   if (d.blocked >= 0) { emit('tapBlocked', { stone }); return false; }
   s.run.dig += power;
-  emit('tap', { power, combo });
+  emit('tap', { power, combo, crit });
   digCheck(s);
   return true;
 }
@@ -96,10 +99,15 @@ export function assignJob(s: GameState, job: JobId, n: number) {
   return true;
 }
 
+/** Research cost after skill discounts. */
+export const researchCost = (s: GameState, r: { cost: Cost }) => scale(r.cost, Math.max(0.3, 1 - bonuses(s).researchCost));
+
 export function buyResearch(s: GameState, id: string) {
   const r = RESEARCH.find((x) => x.id === id);
-  if (!r || s.run.research.includes(id) || !r.req(s) || !canAfford(s, r.cost)) return false;
-  pay(s, r.cost);
+  if (!r || s.run.research.includes(id) || !r.req(s)) return false;
+  const cost = researchCost(s, r);
+  if (!canAfford(s, cost)) return false;
+  pay(s, cost);
   s.run.research.push(id);
   toast(`Researched: ${r.name}`, 'good');
   return true;

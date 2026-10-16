@@ -5,7 +5,7 @@ import {
 } from '../data/defs';
 import { derive, Derived, enemyFor, enemyStats, goldMult, hasAbility, hasAutoCast, levelHp, squadStats } from './calc';
 import { emit, toast } from './events';
-import { addXp, isOffline, setOffline } from './skills';
+import { addXp, bonuses, isOffline, setOffline } from './skills';
 import { PERK_POINTS_PER_GUARDIAN, XP } from '../data/skills';
 import type { GameState } from './state';
 
@@ -57,9 +57,10 @@ export function tick(s: GameState, d: Derived, dt: number) {
 
   // Growth (only while fed)
   if (r.pop < d.maxPop && r.res.food > 0) {
-    const born = Math.min(d.maxPop - r.pop, d.growth * dt, r.res.food / FOOD_PER_BIRTH);
+    const birthCost = FOOD_PER_BIRTH * Math.max(0.2, 1 - bonuses(s).birthCost);
+    const born = Math.min(d.maxPop - r.pop, d.growth * dt, r.res.food / birthCost);
     r.pop += born;
-    r.res.food -= born * FOOD_PER_BIRTH;
+    r.res.food -= born * birthCost;
     addXp(s, 'colony', born * XP.birth);
   }
 
@@ -169,7 +170,8 @@ function tickCombat(s: GameState, d: Derived, dt: number) {
       c.swing[id] -= interval;
       if (c.enemyHp <= 0) spawnEnemy(s);
       const crit = Math.random() < sq.critChance;
-      const dmg = def.atk * (k / volleys) * sq.atkMult * (crit ? sq.critMult : 1);
+      const vsBoss = c.mode === 'guardian' || c.cell === ZONE_CELLS - 1 ? sq.bossMult : 1;
+      const dmg = def.atk * (k / volleys) * sq.atkMult * vsBoss * (crit ? sq.critMult : 1);
       c.enemyHp -= dmg;
       emit('hit', { cls: id, dmg, crit });
       if (c.enemyHp <= 0) onKill(s);
@@ -246,8 +248,9 @@ function onKill(s: GameState) {
   const gold = Math.pow(1.25, c.zone - 1) * (boss ? 10 : 1) * goldMult(s);
   r.res.gold += gold; add(s, 'res.gold', gold);
 
+  const loot = 1 + bonuses(s).loot;
   const item = ENEMIES[id]?.item;
-  if (item && ITEMS[item] && Math.random() < (boss ? 1 : 0.08)) {
+  if (item && ITEMS[item] && Math.random() < (boss ? 1 : 0.08 * loot)) {
     r.items[item] = (r.items[item] ?? 0) + 1;
     s.meta.collection[item] = (s.meta.collection[item] ?? 0) + 1;
     add(s, 'items', 1);
@@ -255,7 +258,7 @@ function onKill(s: GameState) {
   }
 
   if (boss) {
-    if (Math.random() < 0.04) {
+    if (Math.random() < 0.04 * loot) {
       const missing = BOSS_RELICS.filter((x) => !r.relics.includes(x));
       if (missing.length) gainRelic(s, missing[Math.floor(Math.random() * missing.length)]);
     }

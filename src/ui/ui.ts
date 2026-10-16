@@ -17,6 +17,7 @@ import { prefs, savePrefs } from './prefs';
 import { skillsPanel, unspentPoints } from './skillsPanel';
 import type { SkillId } from '../data/skills';
 import { buyPerk, learn, respecPerks, toggleEquip } from '../game/skills';
+import { markInput } from '../game/input';
 import {
   battlePanel, bookPanel, buildPanel, colonyPanel, divinePanel, floorPanel, importModal, prestigeModal, settingsPanel, UIState,
 } from './panels';
@@ -172,6 +173,7 @@ export function showOffline(rep: OfflineReport) {
 
 // ---------------------------------------------------------------- button handling
 function onClick(e: MouseEvent) {
+  markInput();
   const el = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
   if (el) { if ((el as HTMLButtonElement).disabled) return; act(el.dataset.act!, el.dataset.arg ?? ''); return; }
   const tab = (e.target as HTMLElement).closest('[data-tab]') as HTMLElement | null;

@@ -4,7 +4,7 @@ import {
   ITEMS, JOBS, JOB_IDS, RACES, RELICS, RESEARCH, RESOURCES, RES_IDS, ResId,
 } from '../data/defs';
 import {
-  canAfford, divineCost, floorBuildCost, floorUpgradeCost, gearLevelCost, gearTierCost, gearTierReady, reliquarySlots,
+  canAfford, divineCost, floorBuildCost, floorUpgradeCost, gearLevelCost, gearTierCost, gearTierReady, reliquarySlots, researchCost,
 } from '../game/actions';
 import { biomeAt, canPrestige, Derived, div, enemyStats, hasAbility, hasAutoCast, floorPower, gearMult, pendingFavor, squadStats } from '../game/calc';
 import { hasBackup, listSlots } from '../game/save';
@@ -67,8 +67,8 @@ export function colonyPanel(s: GameState, d: Derived, ui: UIState) {
   const hasKnow = r.floors.some((f) => f?.type === 'library') || r.res.knowledge > 0;
   const avail = RESEARCH.filter((x) => !r.research.includes(x.id) && x.req(s));
   const research = !hasKnow ? '' : `<h3>Research <span class="sub">${r.research.length} done</span></h3>
-    ${avail.map((x) => `<div class="row"><div class="grow"><b>${x.name}</b><div class="sub">${x.desc}</div><div>${costHtml(s, x.cost)}</div></div>
-      ${btn('Research', 'research', x.id, canAfford(s, x.cost))}</div>`).join('') || '<div class="sub">Nothing available right now. Dig and explore to reveal more.</div>'}`;
+    ${avail.map((x) => `<div class="row"><div class="grow"><b>${x.name}</b><div class="sub">${x.desc}</div><div>${costHtml(s, researchCost(s, x))}</div></div>
+      ${btn('Research', 'research', x.id, canAfford(s, researchCost(s, x)))}</div>`).join('') || '<div class="sub">Nothing available right now. Dig and explore to reveal more.</div>'}`;
 
   const starving = d.rates.food < 0 && r.res.food < 30;
   return `

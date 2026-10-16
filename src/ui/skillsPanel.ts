@@ -1,5 +1,5 @@
 // The Skills tab: skill levels, the node map for each tree, and run perks.
-import { NODES, NODE_BY_ID, NodeKind, PERKS, POINT_EVERY, SKILLS, SKILL_IDS, SkillId, TIER_REQ } from '../data/skills';
+import { NODES, NODE_BY_ID, NodeKind, PERKS, SKILLS, SKILL_IDS, SkillId, TIER_REQ, TREE_MAX } from '../data/skills';
 import {
   learnState, levelOf, nextPointLevel, perkFree, perkRespecCost, perkSpent, rank, skillLevel, skillXp,
   treeFree, treePoints, treeSpent, xpForLevel,
@@ -37,7 +37,7 @@ export function skillsPanel(s: GameState, ui: SkillsUI) {
     detail = `<div class="skdetail"><div class="sk-top"><b>${SKILLS[id].icon} ${SKILLS[id].name} level ${lvl}</b>
       <span class="sub">${lvl >= 99 ? 'Max level' : `${fmt(xp - lo)} / ${fmt(hi - lo)} XP`}</span></div>
       <span class="xpbar"><i style="width:${(frac * 100).toFixed(1)}%"></i></span>
-      ${lvl < 99 ? `<span class="sub">Next skill point at level ${nextPointLevel(lvl)}</span>` : ''}</div>`;
+      <span class="sub">${treePoints(s, id)} of ${TREE_MAX[id]} points earned${lvl < 99 ? ` · next at level ${nextPointLevel(id, lvl)}` : ' · tree fully mastered'}</span></div>`;
   }
 
   return `
@@ -45,7 +45,7 @@ export function skillsPanel(s: GameState, ui: SkillsUI) {
     <div class="skgrid">${chips}</div>
     ${detail}
     ${ui.skillTree === 'run' ? perksView(s) : treeView(s, ui.skillTree, ui.skillNode)}
-    <p class="sub">Skills level up by doing. Every ${POINT_EVERY} levels earns a point for that skill's tree.</p>`;
+    <p class="sub">Skills level up by doing. Points for each tree are spread evenly from level 1 to 99; level 99 is enough to master the whole tree.</p>`;
 }
 
 function treeView(s: GameState, tree: SkillId, selected: string) {

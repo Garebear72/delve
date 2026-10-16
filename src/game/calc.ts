@@ -3,6 +3,7 @@ import {
   AbilityId, ACH_BONUS, ADJACENCY, BIOMES, CLASSES, CLASS_IDS, ENEMIES, FLOOR_IDS, FloorId, ENEMY_ATK, ENEMY_ATK_GROWTH, ENEMY_HP, ENEMY_HP_GROWTH, FOOD_PER_COLONIST, GEAR, GROWTH_BASE, GROWTH_PER_POP, GUARDIANS, JobId,
   CRIT_CHANCE, KILL_HEAL, RELICS, RelicEffect, RES_IDS, ResId, ZONE_CELLS,
 } from '../data/defs';
+import { leftAlone } from './input';
 import { bonuses, equipped } from './skills';
 import type { GameState } from './state';
 
@@ -83,12 +84,13 @@ export function derive(s: GameState): Derived {
   const globalMult = 1 + s.meta.achievements.length * ACH_BONUS;
   const goblin = r.race === 'goblin';
   const unionBreak = goblin && r.time % 120 >= 100;
-  const jobMult = (unionBreak ? 0 : 1) * (goblin ? 1.4 : 1) * globalMult * pct(b.jobs);
+  const jobMult = (unionBreak ? 0 : 1) * (goblin ? 1.4 : 1) * globalMult * pct(b.jobs)
+    * (b.idleJobs && leftAlone() ? 1 + b.idleJobs : 1);
 
   const foodMult = jobMult * (1 + floors.farm * 0.5) * (1 + 0.25 * div(s, 'harvest')) * pct(b.food)
     * (r.research.includes('compost') ? 1.5 : 1) * (r.god === 'snorg' ? 1.5 : 1) * (1 + relicBonus(s, 'food'));
   const farmed = r.jobs.farmer * 0.5 * foodMult;
-  const eaten = r.pop * FOOD_PER_COLONIST;
+  const eaten = r.pop * FOOD_PER_COLONIST * Math.max(0.2, 1 - b.eat);
   // Out of mushrooms and not growing enough: miners and scholars work at half speed.
   const hungry = r.res.food <= 0.01 && farmed < eaten;
   const hunger = hungry ? 0.5 : 1;
@@ -133,10 +135,10 @@ export function derive(s: GameState): Derived {
 
   return {
     floors, globalMult, maxPop, idle, free, reserved, caps, rates, jobRate, digPower, tapPower, growth,
-    squadCap: 3 + Math.floor(floors.barracks * 3),
+    squadCap: 3 + Math.floor(floors.barracks * 3) + b.squadCap,
     regroupTime: 5 / (1 + floors.barracks * 0.5) / pct(b.regroup),
-    gearCostMult: 1 / (1 + floors.forge * 0.2),
-    favorMult: (1 + floors.shrine * 0.15) * Math.pow(1.25, r.guardians.length),
+    gearCostMult: Math.max(0.2, 1 - b.gearCost) / (1 + floors.forge * 0.2),
+    favorMult: (1 + floors.shrine * 0.15) * Math.pow(1.25, r.guardians.length) * (1 + b.favor),
     unionBreak,
     hungry,
     blocked: blockingGuardian(s),
@@ -177,6 +179,7 @@ export function squadStats(s: GameState, comp = s.run.combat.squad) {
     critChance,
     critMult,
     killHeal: KILL_HEAL + b.killHeal,
+    bossMult: 1 + b.bossDmg, // extra damage against zone bosses and guardians
     heal: heal * am + maxHp * b.regen, // HP per second, delivered in pulses (regen only comes from skills)
     block: n ? Math.min(0.75, block / n + b.block) : 0,
   };

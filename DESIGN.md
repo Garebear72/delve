@@ -139,8 +139,9 @@ Goofy: **Snorg**, God of Snacks · **Pebble**, God of Rocks (only cares about ro
 - **Skill levels and XP are permanent** — they never reset on prestige.
 
 ### Skill points
-- **One point every 5 levels** of a skill, for **that skill's tree only** (20 per skill at 99). No general/free points.
-- XP is slow by design: the first hour gives ~0 points; Hands-On XP counts at most 5 taps per second.
+- Points for **that skill's tree only**, spread **evenly from level 1 to 99**; level 99 gives exactly enough to master the whole tree (≈70–80 points). No general/free points.
+- Trees: 22–26 nodes each over 6 tiers, ending in a pick-one keystone pair plus a capstone notable.
+- XP is slow by design (RuneScape curve); Hands-On XP counts at most 5 taps per second.
 
 ### Major trees (one per skill)
 - A **big node map** you can pan, organised into **tiers**: spend N points in a tree to open its next tier, so there's always a clear next goal.

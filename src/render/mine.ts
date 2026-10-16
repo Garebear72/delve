@@ -88,7 +88,7 @@ export class MineView {
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
 
-    on('tap', (t: { power: number; combo: number }) => this.burst(t.power, t.combo));
+    on('tap', (t: { power: number; combo: number; crit: boolean }) => this.burst(t.power, t.combo, t.crit));
     on('tapBlocked', (t: { stone: number }) => {
       this.ring(this.lastTap.x, this.lastTap.y, '#d95763');
       if (t.stone > 0) {
@@ -153,16 +153,17 @@ export class MineView {
     return p;
   }
 
-  private burst(power: number, combo: number) {
+  private burst(power: number, combo: number, crit = false) {
     const b = biomeAt(this.depth);
-    for (let i = 0; i < 8; i++) this.spawnChunk(this.front.x, this.front.y, b.colors[i % 3], 1.4);
+    for (let i = 0; i < (crit ? 24 : 8); i++) this.spawnChunk(this.front.x, this.front.y, b.colors[i % 3], crit ? 2.2 : 1.4);
     if (Math.random() < 0.6) this.spawnChunk(this.front.x, this.front.y, b.speck, 1.4);
     // Feedback right under the finger: a ripple, the amount dug and the combo.
     const { x, y } = this.lastTap;
-    this.ring(x, y, '#fbf236');
+    this.ring(x, y, crit ? '#ff8a3d' : '#fbf236');
+    if (crit) this.ring(x, y, '#ffffff');
     this.particles.push({
-      x: x - 12 + (Math.random() - 0.5) * 14, y: y - 18, vx: 0, vy: -70, life: 0, max: 0.8,
-      color: '#fbf236', size: 0, text: '+' + (power < 10 ? power.toFixed(1) : fmt(power)),
+      x: x - 12 + (Math.random() - 0.5) * 14, y: y - 18, vx: 0, vy: -70, life: 0, max: crit ? 1.1 : 0.8,
+      color: crit ? '#ff8a3d' : '#fbf236', size: 0, text: (crit ? 'CRIT +' : '+') + (power < 10 ? power.toFixed(1) : fmt(power)),
     });
     if (combo >= 5) {
       this.particles.push({

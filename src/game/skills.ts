@@ -1,7 +1,7 @@
 // Skill levels (RuneScape curve), skill points, tree learning rules, run perks and stat bonuses.
 import { ABILITIES, AbilityId } from '../data/defs';
 import {
-  MAX_LEVEL, NODES, NODE_BY_ID, PERKS, PERK_RESPEC_BASE, POINT_EVERY, SKILLS, SKILL_IDS, SkillId, Stat, STATS, TIER_REQ, XP,
+  MAX_LEVEL, NODES, NODE_BY_ID, PERKS, PERK_RESPEC_BASE, SKILLS, SKILL_IDS, SkillId, Stat, STATS, TIER_REQ, TREE_MAX, XP,
 } from '../data/skills';
 import { toast } from './events';
 import type { GameState } from './state';
@@ -43,7 +43,7 @@ export function addXp(s: GameState, id: SkillId, amount: number) {
   s.meta.skills[id] = skillXp(s, id) + amount * mult;
   const after = skillLevel(s, id);
   if (after > before) {
-    const pts = pointsAtLevel(after) - pointsAtLevel(before);
+    const pts = pointsAtLevel(id, after) - pointsAtLevel(id, before);
     toast(`${SKILLS[id].icon} ${SKILLS[id].name} level ${after}!${pts ? ` +${pts} skill point${pts > 1 ? 's' : ''}` : ''}`, pts ? 'epic' : 'good');
   }
 }
@@ -76,12 +76,19 @@ export function bonuses(s: GameState): Record<Stat, number> {
 export const rank = (s: GameState, id: string) => s.meta.alloc[id] ?? 0;
 export const treeSpent = (s: GameState, tree: SkillId) =>
   NODES.reduce((a, n) => a + (n.tree === tree ? rank(s, n.id) : 0), 0);
-/** Skill points come only from leveling that skill: one every POINT_EVERY levels, plus one at 99. */
-export const pointsAtLevel = (level: number) => Math.floor(level / POINT_EVERY) + (level >= MAX_LEVEL ? 1 : 0);
-export const treePoints = (s: GameState, tree: SkillId) => pointsAtLevel(skillLevel(s, tree));
+/**
+ * Skill points come only from leveling that skill, spread evenly from level 1 to 99,
+ * so level 99 gives exactly enough to fully master the tree.
+ */
+export const pointsAtLevel = (tree: SkillId, level: number) => Math.floor((TREE_MAX[tree] * (level - 1)) / (MAX_LEVEL - 1));
+export const treePoints = (s: GameState, tree: SkillId) => pointsAtLevel(tree, skillLevel(s, tree));
 export const treeFree = (s: GameState, tree: SkillId) => Math.max(0, treePoints(s, tree) - treeSpent(s, tree));
-/** The next level that grants a point. */
-export const nextPointLevel = (level: number) => (level >= MAX_LEVEL ? MAX_LEVEL : Math.min(MAX_LEVEL, (Math.floor(level / POINT_EVERY) + 1) * POINT_EVERY));
+/** The next level that grants a point in this tree. */
+export function nextPointLevel(tree: SkillId, level: number) {
+  const now = pointsAtLevel(tree, level);
+  for (let l = level + 1; l <= MAX_LEVEL; l++) if (pointsAtLevel(tree, l) > now) return l;
+  return MAX_LEVEL;
+}
 
 /** Refund any tree that has more points spent than its skill level allows (e.g. after rule changes). */
 export function reconcileTrees(s: GameState): boolean {
@@ -113,7 +120,7 @@ export function learnState(s: GameState, id: string): { ok: boolean; reason: str
   }
   if (treeFree(s, n.tree) < 1) {
     const lvl = skillLevel(s, n.tree);
-    return { ok: false, reason: `No ${SKILLS[n.tree].name} points. Next point at level ${nextPointLevel(lvl)}.` };
+    return { ok: false, reason: `No ${SKILLS[n.tree].name} points. Next point at level ${nextPointLevel(n.tree, lvl)}.` };
   }
   return { ok: true, reason: '' };
 }
