@@ -8,6 +8,7 @@ import { deleteSlot, exportString, importString, loadBackup, renameSlot, saveSlo
 import { applyOffline, OfflineReport, openSlot, replaceState, saveNow } from '../game/session';
 import { startGuardian, useAbility, digCheck, add } from '../game/sim';
 import { newGame } from '../game/state';
+import { applyUpdate, checkForUpdate, updateReady } from '../game/update';
 import { refresh, store } from '../game/store';
 import { MineView } from '../render/mine';
 import { icon } from '../render/sprites';
@@ -30,6 +31,7 @@ export function buildShell() {
     <div id="topbar"></div>
     <div id="hint"></div>
     <button id="jump" class="btn">⬇ Dig front</button>
+    <button id="update" class="btn epic" data-act="applyUpdate">✨ Update available! Tap to update</button>
     <canvas id="pip"></canvas>
     <div id="sheet"><div id="handle"><span></span></div><div id="sheetBody"><div id="panel"></div></div></div>
     <nav id="tabs"></nav>
@@ -207,6 +209,11 @@ function act(name: string, arg: string) {
       } catch { toast("That doesn't look like a Delve save code.", 'bad'); }
       return;
     }
+    case 'applyUpdate': applyUpdate(); return;
+    case 'checkUpdate':
+      toast('Checking for updates…');
+      checkForUpdate().then((found) => toast(found ? 'A new version is ready! Tap the purple banner to update.' : "You're on the latest version.", found ? 'epic' : 'good'));
+      return;
     // developer
     case 'devToggle': store.dev = !store.dev; if (!store.dev) store.speed = 1; break;
     case 'speed': store.speed = Number(arg); break;
@@ -334,6 +341,7 @@ function renderHint() {
 }
 
 export function frameUI() {
+  $('update').classList.toggle('show', updateReady);
   $('jump').classList.toggle('show', !mine.frontVisible() && !ui.tab);
   const pip = $('pip');
   pip.classList.toggle('show', ui.pip && store.state.run.combatUnlocked && ui.tab !== 'battle');

@@ -288,6 +288,8 @@ export function settingsPanel(s: GameState, d: Derived, ui: UIState) {
     <div class="wrap">${btn('Save now', 'saveNow')}${btn('Export save', 'export')}${btn('Import save', 'import')}${hasBackup(store.slot) ? btn('Restore backup', 'restoreBackup', '', true, 'small') : ''}</div>
     <p class="sub">The game autosaves every 10 seconds and whenever you leave the app. Export your save now and then to keep a copy somewhere safe.</p>
     ${ui.exportText ? `<textarea readonly class="code" data-keep="1">${ui.exportText}</textarea><div class="wrap">${btn('Copy', 'copyExport')}${btn('Download file', 'downloadExport')}${btn('Hide', 'hideExport', '', true, 'small')}</div>` : ''}
+    <h3>Updates</h3>
+    <div class="row"><div class="grow"><b>Version ${__APP_VERSION__}</b><div class="sub">Build ${__BUILD_ID__}. The game checks automatically whenever you open it.</div></div>${btn('Check for updates', 'checkUpdate')}</div>
     <h3>Install on your phone</h3>
     <p class="sub">In Chrome, tap ⋮ → <b>Add to Home screen</b> (or <b>Install app</b>). Delve then opens full-screen and works offline.</p>
     <h3>Options</h3>
@@ -295,7 +297,7 @@ export function settingsPanel(s: GameState, d: Derived, ui: UIState) {
     ${dev}
     <h3>Danger zone</h3>
     <div class="row"><div class="grow"><b>Wipe this slot</b><div class="sub">Starts this slot completely fresh.</div></div>${btn('Wipe', 'wipeSlot', '', true, 'danger')}</div>
-    <p class="sub center">Delve v${__APP_VERSION__}</p>`;
+    <p class="sub center">Delve v${__APP_VERSION__} · build ${__BUILD_ID__}</p>`;
 }
 
 export function importModal() {

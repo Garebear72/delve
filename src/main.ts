@@ -6,6 +6,7 @@ import './style.css';
 import { activeSlot, requestPersistence } from './game/save';
 import { applyOffline, openSlot, saveNow } from './game/session';
 import { advance } from './game/sim';
+import { checkForUpdate } from './game/update';
 import { refresh, store } from './game/store';
 import { CombatView } from './render/combat';
 import { battleCanvas, buildShell, createMine, frameUI, mine, pipCanvas, render, showOffline } from './ui/ui';
@@ -57,8 +58,15 @@ document.addEventListener('visibilitychange', () => {
       render();
     }
     last = performance.now();
+    checkForUpdate();
   }
 });
+
+// Look for a newer deployed version now, on every return (above) and every 5 minutes.
+if (import.meta.env.PROD) {
+  checkForUpdate();
+  setInterval(checkForUpdate, 5 * 60 * 1000);
+}
 addEventListener('pagehide', () => saveNow());
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
