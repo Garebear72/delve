@@ -72,7 +72,8 @@ export function tick(s: GameState, d: Derived, dt: number) {
     r.starve += dt;
     if (r.starve >= STARVE_INTERVAL) {
       r.starve = 0;
-      if (d.idle < 1) {
+      // Unassigned colonists (including ones waiting to join the squad) leave before workers do.
+      if (d.free < 1) {
         const job = (['scholar', 'miner', 'farmer'] as const).find((j) => r.jobs[j] > 0);
         if (job) r.jobs[job]--;
       }
@@ -150,7 +151,11 @@ function combatStep(s: GameState, d: Derived, dt: number) {
 
   if (!c.alive) {
     const size = Object.values(c.plan).reduce((a, b) => a + b, 0);
-    if (size > 0 && d.free >= size) {
+    // Count free colonists live: d was computed before this tick's sub-steps, and an earlier
+    // sub-step may already have formed (and lost) a squad from them.
+    const r = s.run;
+    const free = Math.floor(r.pop) - (r.jobs.miner + r.jobs.farmer + r.jobs.scholar);
+    if (size > 0 && free >= size) {
       c.regroup += dt;
       if (c.regroup >= d.regroupTime) formSquad(s, d);
     } else c.regroup = 0;
@@ -331,7 +336,8 @@ function checkProgress(s: GameState) {
   }
   once('copper', r.depth >= BIOMES[1].from, 'Copper veins! Miners now haul up copper.');
   once('iron', r.depth >= BIOMES[3].from, 'Iron! Miners now haul up iron.');
-  once('divine', r.guardians.includes(0) && s.meta.prestiges === 0, 'The gods are watching… The Divine tab is open. You can now prestige!', 'epic');
+  // 'divine2': older builds set 'divine' at depth 8, which would hide this announcement on their saves.
+  once('divine2', r.guardians.includes(0) && s.meta.prestiges === 0, 'The gods are watching… The Divine tab is open. You can now prestige!', 'epic');
   const g = derive(s).blocked;
   if (g >= 0) once('guard' + g, true, `Something huge blocks the way down: ${GUARDIANS[g].name}. Defeat it in Battle!`, 'epic');
 }

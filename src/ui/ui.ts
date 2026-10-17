@@ -127,11 +127,12 @@ function bindSheetGestures() {
     dy = Math.max(0, e.clientY - startY);
     sheet.style.transform = `translateY(${dy}px)`;
   });
-  const end = () => {
+  const end = (e: PointerEvent) => {
     if (startY < 0) return;
     startY = -1;
     sheet.style.transition = ''; sheet.style.transform = '';
-    if (dy > 50 || dy < 6) closeSheet(); // a swipe down, or a plain tap on the handle
+    // A swipe down or a plain tap closes; an interrupted touch (pointercancel) just snaps back.
+    if (e.type === 'pointerup' && (dy > 50 || dy < 6)) closeSheet();
   };
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);
@@ -221,7 +222,13 @@ function act(name: string, arg: string) {
     case 'prestige':
       if (canPrestige(s, store.d) && A.prestige(s, ui.keep, ui.nextRace as RaceId, ui.nextGod as GodId, ui.respec)) {
         ui.respec = false;
-        closeModal(); refresh(); saveNow(); openTab(null); mine.jumpToFront();
+        // Close the dialog and the panel together, popping both history entries in one step
+        // (two separate history.back() calls race and leave a stray entry).
+        const entries = (history.state?.delve === 'modal' ? 1 : 0) + (ui.tab ? 1 : 0);
+        closeModal(true);
+        openTab(null, true);
+        if (entries) { ignorePops++; history.go(-entries); }
+        refresh(); saveNow(); mine.jumpToFront();
       }
       return;
     case 'closeModal': closeModal(); break;
