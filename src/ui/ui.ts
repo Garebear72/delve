@@ -19,15 +19,16 @@ import type { SkillId } from '../data/skills';
 import { buyPerk, learn, reconcileTrees, respecPerks, respecTrees, skillLevel, toggleEquip, xpForLevel } from '../game/skills';
 import { SKILLS, SKILL_IDS } from '../data/skills';
 import { markInput } from '../game/input';
-import { diceCashOut, diceRoll, gamesTabOpen } from '../game/minigames';
-import { gamesPanel } from './gamesPanel';
+import { diceCashOut, diceRoll, gamesTabOpen, gameUnlocked } from '../game/minigames';
+import type { GameId } from '../data/minigames';
+import { arcadeView, gamesPanel } from './gamesPanel';
 import {
   battlePanel, bookPanel, buildPanel, colonyPanel, divinePanel, floorPanel, importModal, prestigeModal, settingsPanel, UIState,
 } from './panels';
 
 export const ui: UIState = {
   tab: null, slot: 0, bookTab: 'ach', bulk: 1, armDemolish: -1, keep: [], nextRace: 'dwarf', nextGod: 'forge',
-  pip: true, exportText: '', skillTree: 'combat', skillNode: '', showBonuses: false, respec: false,
+  pip: true, exportText: '', skillTree: 'combat', skillNode: '', showBonuses: false, respec: false, game: null,
 };
 let modal: string | null = null;
 
@@ -38,6 +39,7 @@ export function buildShell() {
     <canvas id="mine"></canvas>
     <div id="topbar"></div>
     <div id="hint"></div>
+    <div id="arcade" class="hidden"></div>
     <button id="jump" class="btn">⬇ Dig front</button>
     <button id="update" class="btn epic" data-act="applyUpdate">✨ Update available! Tap to update</button>
     <canvas id="pip"></canvas>
@@ -57,6 +59,7 @@ export function buildShell() {
   addEventListener('popstate', () => {
     if (ignorePops > 0) { ignorePops--; return; }
     if (modal) closeModal(true);
+    else if (ui.game) openGame(null, true);
     else if (ui.tab) openTab(null, true);
   });
 
@@ -98,6 +101,19 @@ export function openTab(tab: string | null, fromHistory = false) {
   $('sheet').classList.toggle('open', !!ui.tab);
   $('sheet').classList.toggle('tall', ui.tab === 'battle' || ui.tab === 'skills');
   if (ui.tab) $('sheetBody').scrollTop = 0;
+  render();
+}
+
+/** Mini-games play in their own full-screen view on top of everything (except toasts and popups). */
+export function openGame(id: string | null, fromHistory = false) {
+  if (id && !gameUnlocked(store.state, id as GameId)) return;
+  const was = ui.game;
+  ui.game = id;
+  if (!fromHistory) {
+    if (!was && id) history.pushState({ delve: 'game' }, '');
+    else if (was && !id && history.state?.delve === 'game') { ignorePops++; history.back(); }
+  }
+  $('arcade').classList.toggle('hidden', !id);
   render();
 }
 
@@ -211,6 +227,8 @@ function act(name: string, arg: string) {
       else if (prefs.vibrate) navigator.vibrate?.(s.run.dice.result === 'lose' ? [30, 40, 30] : 15);
       break;
     case 'diceCash': diceCashOut(s); break;
+    case 'openGame': openGame(arg); return;
+    case 'closeGame': openGame(null); return;
     case 'gear': A.buyGearLevel(s, arg as 'w' | 'a'); break;
     case 'tier': A.buyGearTier(s, arg as 'w' | 'a'); break;
     case 'pip': ui.pip = !ui.pip; break;
@@ -232,7 +250,8 @@ function act(name: string, arg: string) {
         ui.respec = false;
         // Close the dialog and the panel together, popping both history entries in one step
         // (two separate history.back() calls race and leave a stray entry).
-        const entries = (history.state?.delve === 'modal' ? 1 : 0) + (ui.tab ? 1 : 0);
+        const entries = (history.state?.delve === 'modal' ? 1 : 0) + (ui.tab ? 1 : 0) + (ui.game ? 1 : 0);
+        ui.game = null; $('arcade').classList.add('hidden');
         closeModal(true);
         openTab(null, true);
         if (entries) { ignorePops++; history.go(-entries); }
@@ -374,6 +393,7 @@ export function render() {
     case 'build': html = buildPanel(s, d, ui); break;
     case 'floor': html = floorPanel(s, d, ui); break;
   }
+  if (ui.game) morphdom($('arcade'), `<div id="arcade">${arcadeView(s, ui.game as GameId)}</div>`);
   morphdom(panel, `<div id="panel">${html}</div>`, {
     onBeforeElUpdated: (from) => !(from.tagName === 'CANVAS' || (from as HTMLElement).dataset?.keep === '1' && from === document.activeElement),
   });

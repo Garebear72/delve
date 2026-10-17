@@ -34,6 +34,7 @@ export interface UIState {
   skillNode: string;
   showBonuses: boolean;
   respec: boolean; // reset skill trees on the next prestige
+  game: string | null; // mini-game open full screen
 }
 
 type Cost = Partial<Record<ResId, number>>;

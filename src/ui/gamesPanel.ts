@@ -17,9 +17,14 @@ const QUIPS: Record<string, string> = {
   '': '"Fancy a roll, Digging God? Ties go to me. House rules."',
 };
 
+/** The Games tab: a card per unlocked game (tap to open its full-screen view), the next teaser, and Curios. */
 export function gamesPanel(s: GameState) {
-  const unlocked = GAME_IDS.filter((id) => gameUnlocked(s, id));
-  const body = unlocked.map((id) => (id === 'dice' ? diceView(s) : '')).join('');
+  const cards = GAME_IDS.filter((id) => gameUnlocked(s, id)).map((id) => {
+    const g = MINIGAMES[id];
+    return `<div class="gamecard" data-act="openGame" data-arg="${id}"><span class="gameicon">${g.icon}</span>
+      <div class="grow"><b>${g.name}</b><div class="sub">${g.desc}</div><div class="sub">${gameStatus(s, id)}</div></div>
+      <button class="btn epic">Play</button></div>`;
+  }).join('');
   // Tease only the next mini-game; later ones stay a mystery.
   const next = GAME_IDS.find((id) => !gameUnlocked(s, id));
   const teaser = next
@@ -27,34 +32,61 @@ export function gamesPanel(s: GameState) {
         <div class="sub">${MINIGAMES[next].built ? MINIGAMES[next].desc + ' ' : 'Something is being built in the dark. '}Unlocks at prestige ${MINIGAMES[next].prestiges}.</div></div></div>`
     : '';
   return `<h2>Games</h2><div class="sub">One new mini-game unlocks with each prestige. They can find <b>Curios</b>: rare, permanent treasures nothing else gives.</div>
-    ${body}${teaser}<h3>Curios</h3>${curioList(s)}`;
+    ${cards}${teaser}<h3>Curios</h3>${curioList(s)}`;
 }
 
-function diceView(s: GameState) {
+function gameStatus(s: GameState, id: GameId) {
+  if (id === 'dice') return hasTavern(s) ? `Bet ${fmt(diceStake(s))} gold` : '🔒 Needs a Tavern this run';
+  return '';
+}
+
+/** Full-screen view for one game. The header and the events strip are shared by every game. */
+export function arcadeView(s: GameState, id: GameId) {
+  const g = MINIGAMES[id];
+  const found = Object.keys(CURIOS).filter((c) => CURIOS[c].game === id);
+  const have = found.filter((c) => s.meta.curios[c]).length;
+  const body = id === 'dice' ? diceTable(s) : '';
+  return `<div class="arcade-head">
+      <button class="btn" data-act="closeGame">← Back</button>
+      <b class="grow">${g.icon} ${g.name}</b>
+      <div class="chip">${icon('i_gold')}<b>${fmt(s.run.res.gold)}</b></div>
+    </div>
+    <div class="arcade-events" id="arcadeEvents"></div>
+    <div class="arcade-body">${body}</div>
+    <div class="arcade-foot sub">Curios from this game: <b>${have} / ${found.length}</b> found · see them in the Games tab or the Book.</div>`;
+}
+
+function diceTable(s: GameState) {
   const g = s.run.dice;
-  const head = `<h3>${MINIGAMES.dice.icon} ${MINIGAMES.dice.name}</h3>`;
-  if (!hasTavern(s)) return `${head}<div class="row locked"><div class="grow"><b>The back room is closed</b><div class="sub">Build a Tavern floor this run and the goblin will set up his table.</div></div></div>`;
-  if (!diceOpen(s)) return '';
+  if (!diceOpen(s)) {
+    return `<div class="table"><div class="goblin">${icon('goblin')}</div><p class="quip">"Back room's closed. Build a Tavern and I'll set up my table."</p></div>`;
+  }
   const stake = diceStake(s);
   const sum = (a: number[]) => a[0] + a[1];
   const dice = g.you.length
     ? `<div class="dice" id="dice-${g.rolls}">
-        <div><span class="sub">You</span><b class="faces">${FACES[g.you[0]]}${FACES[g.you[1]]}</b><span>${sum(g.you)}</span></div>
         <div><span class="sub">Goblin</span><b class="faces">${FACES[g.gob[0]]}${FACES[g.gob[1]]}</b><span>${sum(g.gob)}</span></div>
+        <div><span class="sub">You</span><b class="faces">${FACES[g.you[0]]}${FACES[g.you[1]]}</b><span>${sum(g.you)}</span></div>
       </div>`
-    : '';
-  const result = g.result === 'boxcars' ? `<b class="good">Boxcars! Pot ×${DICE.boxcars}</b>`
-    : g.result === 'win' ? `<b class="good">You win! Pot ×${DICE.payout}</b>`
-    : g.result === 'lose' ? '<b class="neg">You lose the pot.</b>' : '';
+    : '<div class="dice idle"><b class="faces">⚅⚅</b></div>';
+  const result = g.result === 'boxcars' ? `<div class="result good">Boxcars! Pot ×${DICE.boxcars}</div>`
+    : g.result === 'win' ? `<div class="result good">You win! Pot ×${DICE.payout}</div>`
+    : g.result === 'lose' ? '<div class="result neg">You lose the pot.</div>' : '';
   const luck = diceLuck(s);
   const controls = g.pot > 0
-    ? `<div class="kv"><span>Pot</span><span class="grow"></span>${icon('i_gold')}<b class="good">${fmt(g.pot)}</b></div>
-       <div class="sub">Win streak ${g.streak} · Curio luck ×${luck.toFixed(2)}. Each win in a row makes Curios more likely.</div>
-       <div class="wrap">${btn(`Cash out ${fmt(g.pot)}`, 'diceCash', '', true, 'epic')}${btn('Double or nothing', 'diceRoll', '', true)}</div>`
-    : `<div class="kv"><span>Bet</span><span class="grow"></span>${icon('i_gold')}<b>${fmt(stake)}</b><span class="sub">&nbsp;(you have ${fmt(s.run.res.gold)})</span></div>
-       <div class="wrap">${btn(`Roll for ${fmt(stake)} gold`, 'diceRoll', '', s.run.res.gold >= stake, 'epic')}</div>
-       <div class="sub">Beat the goblin's total to win ×${DICE.payout}. Ties go to the goblin. Double sixes pay ×${DICE.boxcars}. Every roll might turn up a Curio. The bet grows as your Expedition goes deeper.</div>`;
-  return `${head}<div class="minigame">${dice}<p class="quip">${QUIPS[g.result] ?? ''}</p>${result ? `<div>${result}</div>` : ''}${controls}</div>`;
+    ? `<div class="pot">Pot ${icon('i_gold')}<b>${fmt(g.pot)}</b></div>
+       <div class="sub center">Win streak ${g.streak} · Curio luck ×${luck.toFixed(2)}</div>
+       <div class="bigbtns">${btn(`Cash out ${fmt(g.pot)}`, 'diceCash', '', true, 'epic big')}${btn('Double or nothing', 'diceRoll', '', true, 'big')}</div>`
+    : `<div class="pot">Bet ${icon('i_gold')}<b>${fmt(stake)}</b></div>
+       <div class="bigbtns">${btn(`Roll for ${fmt(stake)} gold`, 'diceRoll', '', s.run.res.gold >= stake, 'epic big')}</div>`;
+  return `<div class="table">
+      <div class="goblin">${icon('goblin')}</div>
+      <p class="quip">${QUIPS[g.result] ?? ''}</p>
+      ${dice}${result}
+    </div>
+    ${controls}
+    <div class="sub rules">Beat the goblin's total to win ×${DICE.payout}. Ties go to the goblin. Double sixes pay ×${DICE.boxcars}.
+      Every roll might turn up a Curio, and each win in a row makes one more likely. The bet grows as your Expedition goes deeper.</div>`;
 }
 
 /** Every Curio of the unlocked games, found or not. */

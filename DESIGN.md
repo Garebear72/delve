@@ -166,7 +166,7 @@ Goofy: **Snorg**, God of Snacks · **Pebble**, God of Rocks (only cares about ro
 
 Useful from early game to endgame. Rewards include resources, bonus money/ore, achievements, and **items you can't get anywhere else**. Each activity can be upgraded so it scales with the game.
 
-**Unlock pacing (decided):** one mini-game per prestige, so the fourth arrives after the fourth prestige — the game is meant to last a long time. Order: 1 Goblin Dice → 2 Plinko Ore Drop → 3 Mine-Cart Gamble → 4 Wheel of the Gods. The Games tab appears after the first prestige; only the next locked game is teased. Each game may also need an in-run venue (Goblin Dice needs a Tavern this run).
+**Unlock pacing (decided):** one mini-game per prestige, so the fourth arrives after the fourth prestige — the game is meant to last a long time. Order: 1 Goblin Dice → 2 Plinko Ore Drop → 3 Mine-Cart Gamble → 4 Wheel of the Gods. The Games tab appears after the first prestige; only the next locked game is teased. Each game may also need an in-run venue (Goblin Dice needs a Tavern this run). The Games tab lists a card per unlocked game; tapping one opens that game **full screen** (its own view over everything, Android back closes it), with a shared header and an events strip reserved for future in-game events.
 
 **Curios (built):** permanent collectibles only mini-games give, each with a small permanent bonus; up to 5 copies count (each copy stacks). Every play rolls for one: Common ~1/30, Rare ~1/300, Legendary ~1/3000, times luck. Each game has its own pool. Shown in the Games tab and the Book.
 
