@@ -79,7 +79,8 @@ This is a living document. Everything here can change.
 ## 4. Combat (the Expedition)
 
 - Trimps-style: zones of cells, one enemy per cell, boss at the end; your army fights automatically.
-- Army wiped → wait for reinforcements (barracks/breeding speed matters).
+- Army wiped → wait for reinforcements (barracks/breeding speed matters). The enemy that won is fully healed (a fresh one spawns).
+- Losing to a zone boss → the squad loops that zone's normal monsters until the player taps "Retry boss". Losing to a guardian → back to zone fights; Challenge again manually.
 - **Watchable:** pixel squad marches, enemies stagger in, damage numbers, screen-filling bosses.
 - **Stats:** HP, attack, armor/block, crit, lifesteal, AoE, summons, etc.
 - **Abilities:** triggered or auto-cast (unlockable), with visible, pretty effects.

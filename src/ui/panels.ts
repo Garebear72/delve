@@ -190,6 +190,7 @@ export function battlePanel(s: GameState, d: Derived, ui: UIState) {
     <canvas id="battle" class="battle"></canvas>
     <div>${abilities}</div>
     ${guardian}
+    ${c.bossHold && c.mode === 'zone' ? `<div class="guardian"><b>Zone ${c.zone} boss</b> beat your squad.<div class="sub">They're fighting this zone's monsters instead. Retry when you're stronger.</div>${btn('Retry boss', 'zoneBoss', '', true, 'epic')}</div>` : ''}
     <div class="row"><div class="grow"><b>${c.farm ? 'Staying in zone ' + c.zone : 'Pushing onward'}</b><div class="sub">${c.farm ? 'Repeat this zone for loot and gold.' : 'Advance after each zone boss.'}</div></div>${btn(c.farm ? 'Push on' : 'Stay here', 'farm')}</div>
     <h3>Squad <span class="sub">${planSize} / ${d.squadCap} · reforms in ${fmt(d.regroupTime)}s</span></h3>
     ${!c.alive && planSize > d.free ? `<div class="warn">Your squad needs ${planSize} colonists but only ${d.free} are free. Move some workers out of jobs in Colony, lower the squad size, or build Bunkhouses for more colonists.</div>` : ''}

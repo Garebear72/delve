@@ -219,9 +219,14 @@ function wipe(s: GameState) {
   c.squadHp = 0;
   c.squad = { recruit: 0, fighter: 0, cleric: 0, wizard: 0 };
   add(s, 'wipes', 1);
+  // Whatever won keeps no damage: the next squad faces a fresh enemy.
+  c.enemyHp = 0;
   if (c.mode === 'guardian') {
-    toast(`${GUARDIANS[c.guardian].name} was too much. Your squad got bonked.`, 'bad');
-    c.mode = 'zone'; c.guardian = -1; c.enemyHp = 0;
+    toast(`${GUARDIANS[c.guardian].name} was too much. Your squad got bonked. Challenge it again when you're ready.`, 'bad');
+    c.mode = 'zone'; c.guardian = -1;
+  } else if (c.cell === ZONE_CELLS - 1) {
+    c.bossHold = true; c.cell = 0;
+    toast(`The zone ${c.zone} boss bonked your squad. They'll fight this zone's monsters until you retry the boss.`, 'bad');
   } else toast('Your squad got bonked! Regrouping…', 'bad');
   emit('wipe');
 }
@@ -287,6 +292,8 @@ function onKill(s: GameState) {
     c.squadHp = squadStats(s).maxHp;
   } else {
     c.cell++;
+    // After losing to the zone boss, loop the zone's normal monsters until the player retries.
+    if (c.bossHold && c.cell === ZONE_CELLS - 1) c.cell = 0;
     // Each victory patches the squad up a bit.
     const sq = squadStats(s);
     const max = sq.maxHp;
@@ -310,6 +317,15 @@ export function startGuardian(s: GameState) {
   const g = GUARDIANS[d.blocked];
   c.enemyHp = c.enemyMax = g.hp;
   toast(`${g.name} awakens!`, 'epic');
+}
+
+/** Retry the zone boss the squad lost to: it's the next fight (now, or when the squad re-forms). */
+export function retryZoneBoss(s: GameState) {
+  const c = s.run.combat;
+  if (!c.bossHold || c.mode !== 'zone') return;
+  c.bossHold = false;
+  c.cell = ZONE_CELLS - 1;
+  c.enemyHp = 0;
 }
 
 // ---------------------------------------------------------------- unlocks & achievements

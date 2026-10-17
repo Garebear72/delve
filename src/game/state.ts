@@ -20,6 +20,7 @@ export interface CombatState {
   squadHp: number;
   regroup: number;
   farm: boolean;
+  bossHold: boolean; // lost to this zone's boss: loop the normal enemies until the player retries
   cry: number;
   cryCd: number;
   wall: number;
@@ -91,7 +92,7 @@ export function newCombat(): CombatState {
   return {
     zone: 1, cell: 0, enemyId: '', enemyHp: 0, enemyMax: 1, mode: 'zone', guardian: -1,
     alive: false, squad: zeroClasses(), plan: { ...zeroClasses(), recruit: 3 }, squadHp: 0, regroup: 0,
-    farm: false, cry: 0, cryCd: 0, wall: 0, wallCd: 0, autoCast: false, swing: zeroClasses(), eSwing: 0, healT: 0,
+    farm: false, bossHold: false, cry: 0, cryCd: 0, wall: 0, wallCd: 0, autoCast: false, swing: zeroClasses(), eSwing: 0, healT: 0,
   };
 }
 

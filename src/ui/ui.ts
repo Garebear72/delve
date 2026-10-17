@@ -6,7 +6,7 @@ import { canPrestige } from '../game/calc';
 import { on } from '../game/events';
 import { deleteSlot, exportString, importString, loadBackup, renameSlot, saveSlot } from '../game/save';
 import { applyOffline, OfflineReport, openSlot, replaceState, saveNow } from '../game/session';
-import { startGuardian, useAbility, digCheck, add } from '../game/sim';
+import { startGuardian, retryZoneBoss, useAbility, digCheck, add } from '../game/sim';
 import { newGame } from '../game/state';
 import { applyUpdate, checkForUpdate, updateReady } from '../game/update';
 import { refresh, store } from '../game/store';
@@ -203,6 +203,7 @@ function act(name: string, arg: string) {
     case 'autocast': s.run.combat.autoCast = !s.run.combat.autoCast; break;
     case 'guardian': startGuardian(s); break;
     case 'farm': s.run.combat.farm = !s.run.combat.farm; break;
+    case 'zoneBoss': retryZoneBoss(s); break;
     case 'gear': A.buyGearLevel(s, arg as 'w' | 'a'); break;
     case 'tier': A.buyGearTier(s, arg as 'w' | 'a'); break;
     case 'pip': ui.pip = !ui.pip; break;
