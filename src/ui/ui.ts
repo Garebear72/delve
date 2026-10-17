@@ -19,6 +19,8 @@ import type { SkillId } from '../data/skills';
 import { buyPerk, learn, reconcileTrees, respecPerks, respecTrees, skillLevel, toggleEquip, xpForLevel } from '../game/skills';
 import { SKILLS, SKILL_IDS } from '../data/skills';
 import { markInput } from '../game/input';
+import { diceCashOut, diceRoll, gamesTabOpen } from '../game/minigames';
+import { gamesPanel } from './gamesPanel';
 import {
   battlePanel, bookPanel, buildPanel, colonyPanel, divinePanel, floorPanel, importModal, prestigeModal, settingsPanel, UIState,
 } from './panels';
@@ -204,6 +206,11 @@ function act(name: string, arg: string) {
     case 'guardian': startGuardian(s); break;
     case 'farm': s.run.combat.farm = !s.run.combat.farm; break;
     case 'zoneBoss': retryZoneBoss(s); break;
+    case 'diceRoll':
+      if (!diceRoll(s) && s.run.dice.pot <= 0) toast('Not enough gold for the bet.', 'bad');
+      else if (prefs.vibrate) navigator.vibrate?.(s.run.dice.result === 'lose' ? [30, 40, 30] : 15);
+      break;
+    case 'diceCash': diceCashOut(s); break;
     case 'gear': A.buyGearLevel(s, arg as 'w' | 'a'); break;
     case 'tier': A.buyGearTier(s, arg as 'w' | 'a'); break;
     case 'pip': ui.pip = !ui.pip; break;
@@ -338,6 +345,7 @@ function devAction(what: string) {
   if (what === 'guardian' && d.blocked >= 0) { r.guardians.push(d.blocked); }
   if (what === 'zones') { r.combat.zone += 5; r.maxZone = Math.max(r.maxZone, r.combat.zone - 1); r.combat.cell = 0; r.combat.enemyHp = 0; }
   if (what === 'favor') { s.meta.favor += 50; }
+  if (what === 'prestigeCount') { s.meta.prestiges++; toast(`Prestige count is now ${s.meta.prestiges} (unlocks only, no reset).`, 'good'); }
   if (what === 'research') { for (const x of RESEARCH) if (!r.research.includes(x.id)) r.research.push(x.id); }
   if (what === 'away') { showOffline(applyOffline(3600)); }
   if (what === 'respec') { respecTrees(s); toast('Skill trees refunded.', 'good'); }
@@ -361,6 +369,7 @@ export function render() {
     case 'battle': html = battlePanel(s, d, ui); break;
     case 'divine': html = divinePanel(s, d); break;
     case 'book': html = bookPanel(s, d, ui); break;
+    case 'games': html = gamesPanel(s); break;
     case 'settings': html = settingsPanel(s, d, ui); break;
     case 'build': html = buildPanel(s, d, ui); break;
     case 'floor': html = floorPanel(s, d, ui); break;
@@ -419,6 +428,7 @@ function renderTabs() {
     ['battle', 'Battle', icon('sword')],
     ['skills', 'Skills', '<span class="emo">🌳</span>'],
     ['divine', 'Divine', icon('i_favor')],
+    ...(gamesTabOpen(s) ? [['games', 'Games', '<span class="emo">🎲</span>'] as [string, string, string]] : []),
     ['book', 'Book', icon('i_know')],
     ['settings', 'Menu', '☰'],
   ];

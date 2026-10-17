@@ -166,6 +166,12 @@ Goofy: **Snorg**, God of Snacks · **Pebble**, God of Rocks (only cares about ro
 
 Useful from early game to endgame. Rewards include resources, bonus money/ore, achievements, and **items you can't get anywhere else**. Each activity can be upgraded so it scales with the game.
 
+**Unlock pacing (decided):** one mini-game per prestige, so the fourth arrives after the fourth prestige — the game is meant to last a long time. Order: 1 Goblin Dice → 2 Plinko Ore Drop → 3 Mine-Cart Gamble → 4 Wheel of the Gods. The Games tab appears after the first prestige; only the next locked game is teased. Each game may also need an in-run venue (Goblin Dice needs a Tavern this run).
+
+**Curios (built):** permanent collectibles only mini-games give, each with a small permanent bonus; up to 5 copies count (each copy stacks). Every play rolls for one: Common ~1/30, Rare ~1/300, Legendary ~1/3000, times luck. Each game has its own pool. Shown in the Games tab and the Book.
+
+**Goblin Dice (built, prestige 1):** bet gold (50 × 1.25^(zones cleared this run − 1)); 2d6 vs the goblin's 2d6, goblin wins ties; win ×1.8, double sixes ×3; then cash out or double-or-nothing. Curio luck ×1.5 per win in the current streak. Bets return ~84% on average: the gold is a cost, Curios are the prize.
+
 - **Plinko Ore Drop** — physics, fun to watch.
 - **Mine-Cart Gamble**
 - **Slots & Dice** (in-game currency only)
@@ -227,7 +233,7 @@ Useful from early game to endgame. Rewards include resources, bonus money/ore, a
 - Installable PWA with offline support; dev panel (speed ×10–×1000, cheats).
 
 **Next up (candidates)**
-- Mini-games: Plinko Ore Drop, Mine-Cart Gamble.
+- Mini-games: Plinko Ore Drop (prestige 2), Mine-Cart Gamble (3), Wheel of the Gods (4). Goblin Dice + Curios are built.
 - Run skill trees (Combat / Digging / Economy, Hands-On vs Hands-Off).
 - Hidden caverns → dungeons.
 - More biomes, races, gods, enemies, relics; tier-2 prestige (Ascension).

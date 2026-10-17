@@ -1,4 +1,5 @@
 // Derived numbers: everything computed from state (rates, caps, squad stats).
+import { CURIOS, CURIO_MAX, CurioEffect } from '../data/minigames';
 import {
   AbilityId, ACH_BONUS, ADJACENCY, BIOMES, CLASSES, CLASS_IDS, ENEMIES, FLOOR_IDS, FloorId, ENEMY_ATK, ENEMY_ATK_GROWTH, ENEMY_HP, ENEMY_HP_GROWTH, FOOD_PER_COLONIST, GEAR, GROWTH_BASE, GROWTH_PER_POP, GUARDIANS, JobId,
   CRIT_CHANCE, KILL_HEAL, RELICS, RelicEffect, RES_IDS, ResId, ZONE_CELLS,
@@ -30,9 +31,20 @@ export const hasAbility = (s: GameState, id: AbilityId) => equipped(s, id);
 export const hasAutoCast = (s: GameState) => bonuses(s).autoCast > 0;
 const pct = (v: number) => Math.max(0.1, 1 + v); // skill bonus as a multiplier, never below 10%
 
+/** Relics held this run plus permanent Curios with the same effect. */
 export function relicBonus(s: GameState, effect: RelicEffect): number {
-  let b = 0;
+  let b = curioBonus(s, effect);
   for (const id of s.run.relics) if (RELICS[id]?.effect === effect) b += RELICS[id].value;
+  return b;
+}
+
+/** Bonus from Curios: each copy (up to CURIO_MAX) adds the Curio's value again. */
+export function curioBonus(s: GameState, effect: CurioEffect): number {
+  let b = 0;
+  for (const [id, n] of Object.entries(s.meta.curios)) {
+    const c = CURIOS[id];
+    if (c?.effect === effect) b += c.value * Math.min(n, CURIO_MAX);
+  }
   return b;
 }
 
@@ -81,7 +93,7 @@ export function derive(s: GameState): Derived {
   const floors = Object.fromEntries(FLOOR_IDS.map((f) => [f, 0])) as Record<FloorId, number>;
   r.floors.forEach((f, i) => { if (f) floors[f.type] += floorPower(s, i); });
 
-  const globalMult = 1 + s.meta.achievements.length * ACH_BONUS;
+  const globalMult = (1 + s.meta.achievements.length * ACH_BONUS) * (1 + curioBonus(s, 'all'));
   const goblin = r.race === 'goblin';
   const unionBreak = goblin && r.time % 120 >= 100;
   const jobMult = (unionBreak ? 0 : 1) * (goblin ? 1.4 : 1) * globalMult * pct(b.jobs)

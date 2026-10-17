@@ -1,6 +1,7 @@
 import { ABILITIES, FLOORS, GODS, RACES } from '../data/defs';
 import type { AbilityId, ClassId, FloorId, GodId, JobId, RaceId, ResId } from '../data/defs';
 import type { SkillId } from '../data/skills';
+import { CURIOS } from '../data/minigames';
 
 export const SAVE_VERSION = 1;
 
@@ -55,6 +56,16 @@ export interface RunState {
   perks: Record<string, number>; // run perk ranks (reset every prestige)
   perkPoints: number; // run perk points earned this run
   perkRespecs: number;
+  dice: DiceState;
+}
+
+export interface DiceState {
+  pot: number; // gold riding on the table (0 = no bet)
+  streak: number; // wins in a row this bet
+  you: number[];
+  gob: number[];
+  result: '' | 'win' | 'lose' | 'boxcars' | 'cashout';
+  rolls: number; // total rolls this run (also keys the dice animation)
 }
 
 export interface MetaState {
@@ -77,6 +88,7 @@ export interface MetaState {
   skills: Record<SkillId, number>; // XP per skill (permanent)
   alloc: Record<string, number>; // learned skill tree nodes and their ranks
   loadout: AbilityId[]; // equipped abilities
+  curios: Record<string, number>; // Curios found (permanent), copies of each
 }
 
 export interface GameState {
@@ -119,6 +131,7 @@ export function newRun(meta: MetaState, race: RaceId = 'dwarf', god: GodId = 'fo
     perks: {},
     perkPoints: 0,
     perkRespecs: 0,
+    dice: { pot: 0, streak: 0, you: [], gob: [], result: '', rolls: 0 },
   };
 }
 
@@ -130,6 +143,7 @@ export function newMeta(): MetaState {
     skills: { combat: 0, digging: 0, colony: 0, handsOn: 0, handsOff: 0 },
     alloc: {},
     loadout: [],
+    curios: {},
   };
 }
 
@@ -157,6 +171,7 @@ function sanitize(s: GameState) {
   if (!m.races.includes('dwarf')) m.races.unshift('dwarf');
   if (!m.gods.includes('forge')) m.gods.unshift('forge');
   m.loadout = m.loadout.filter((a) => a in ABILITIES);
+  m.curios = Object.fromEntries(Object.entries(m.curios).filter(([id, n]) => id in CURIOS && n > 0));
   r.floors = r.floors.map((f) => (f && f.type in FLOORS && f.level >= 1 ? f : null));
 }
 

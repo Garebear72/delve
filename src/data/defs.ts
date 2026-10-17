@@ -267,6 +267,10 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: 'wipe1', name: 'Tactical Retreat', desc: 'Have your squad get bonked.', check: (s) => lt(s, 'wipes') >= 1 },
   { id: 'unionBreak', name: 'Solidarity', desc: 'Experience a Union Break.', check: (s) => lt(s, 'unionBreaks') >= 1 },
   { id: 'prestige1', name: 'Born Again Digger', desc: 'Prestige for the first time.', check: (s) => s.meta.prestiges >= 1 },
+  { id: 'dice100', name: 'Regular', desc: 'Roll Goblin Dice 100 times.', check: (s) => lt(s, 'dice.rolls') >= 100 },
+  { id: 'diceStreak5', name: "Goblin's Nemesis", desc: 'Win 5 dice rolls in a row.', check: (s) => lt(s, 'dice.bestStreak') >= 5 },
+  { id: 'curio1', name: 'Knick-Knack', desc: 'Find a Curio.', check: (s) => lt(s, 'curios') >= 1 },
+  { id: 'curio10', name: 'Cabinet of Curiosities', desc: 'Find 10 Curios in total.', check: (s) => lt(s, 'curios') >= 10 },
   { id: 'prestige5', name: 'Serial Delver', desc: 'Prestige 5 times.', check: (s) => s.meta.prestiges >= 5 },
 ];
 export const ACH_BONUS = 0.02; // +2% to all production per achievement

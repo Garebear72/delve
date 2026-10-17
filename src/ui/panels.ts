@@ -13,6 +13,8 @@ import { store } from '../game/store';
 import { icon } from '../render/sprites';
 import { esc, fmt, fmtRate, fmtTime } from './format';
 import { prefs } from './prefs';
+import { gamesTabOpen } from '../game/minigames';
+import { curioList } from './gamesPanel';
 import { SKILLS, SKILL_IDS, TREE_MAX } from '../data/skills';
 import type { SkillId } from '../data/skills';
 import { abilitySlots, knowsAbility, rank, skillLevel, treePoints } from '../game/skills';
@@ -257,7 +259,7 @@ export function prestigeModal(s: GameState, d: Derived, ui: UIState) {
 
 // ---------------------------------------------------------------- book
 export function bookPanel(s: GameState, d: Derived, ui: UIState) {
-  const tabs = [['ach', 'Achievements'], ['res', 'Resources'], ['items', 'Items'], ['relics', 'Relics'], ['beasts', 'Bestiary'], ['stats', 'Stats']]
+  const tabs = [['ach', 'Achievements'], ['res', 'Resources'], ['items', 'Items'], ['relics', 'Relics'], ...(gamesTabOpen(s) ? [['curios', 'Curios']] : []), ['beasts', 'Bestiary'], ['stats', 'Stats']]
     .map(([id, name]) => btn(name, 'bookTab', id, true, ui.bookTab === id ? 'on small' : 'small')).join('');
   const m = s.meta;
   let body = '';
@@ -283,6 +285,8 @@ export function bookPanel(s: GameState, d: Derived, ui: UIState) {
       return found ? `<div class="row">${icon('i_relic')}<div class="grow"><b>${rl.name}</b> ${have ? '<span class="tag good">Active</span>' : ''}${m.reliquary.includes(id) ? '<span class="tag">Kept</span>' : ''}<div class="sub">${rl.desc}</div></div></div>`
         : `<div class="row locked"><div class="grow"><b>???</b><div class="sub">${rl.rare ? 'Guarded by something big.' : 'Zone bosses sometimes drop these.'}</div></div></div>`;
     }).join('');
+  } else if (ui.bookTab === 'curios') {
+    body = curioList(s);
   } else if (ui.bookTab === 'beasts') {
     const entries = Object.entries(ENEMIES).map(([id, e]) => [id, e.name, e.sprite, e.pal] as const)
       .concat(GUARDIANS.map((g, i) => ['g' + i, g.name, g.sprite, g.pal] as const));
@@ -296,6 +300,7 @@ export function bookPanel(s: GameState, d: Derived, ui: UIState) {
     body = st('Time played', fmtTime(m.time)) + st('This run', fmtTime(s.run.time)) + st('Prestiges', String(m.prestiges)) +
       st('Best depth', String(m.bestDepth)) + st('Best zone', String(m.bestZone)) + st('Levels dug', fmt(m.lifetime.levels ?? 0)) +
       st('Monsters defeated', fmt(m.lifetime.kills ?? 0)) + st('Squads bonked', fmt(m.lifetime.wipes ?? 0)) +
+      (gamesTabOpen(s) ? st('Dice rolls', fmt(m.lifetime['dice.rolls'] ?? 0)) + st('Dice gold won', fmt(m.lifetime['dice.won'] ?? 0)) + st('Best dice streak', fmt(m.lifetime['dice.bestStreak'] ?? 0)) + st('Curios found', fmt(m.lifetime.curios ?? 0)) : '') +
       st('Dig taps', fmt(m.lifetime.taps ?? 0)) + st('Best tap combo', fmt(m.lifetime.bestCombo ?? 0)) + st('Total Favor earned', fmt(m.totalFavor));
   }
   return `<div class="wrap subtabs">${tabs}</div>${body}`;
@@ -315,7 +320,7 @@ export function settingsPanel(s: GameState, d: Derived, ui: UIState) {
   const dev = !store.dev ? '' : `<h3>Developer</h3>
     <div class="wrap">${[1, 10, 100, 1000].map((n) => btn('×' + n, 'speed', n, true, store.speed === n ? 'on small' : 'small')).join('')}</div>
     <div class="wrap">${btn('+1K resources', 'dev', 'res', true, 'small')}${btn('+10 colonists', 'dev', 'pop', true, 'small')}${btn('+5 depth', 'dev', 'depth', true, 'small')}
-      ${btn('Beat guardian', 'dev', 'guardian', true, 'small')}${btn('+5 zones', 'dev', 'zones', true, 'small')}${btn('+50 Favor', 'dev', 'favor', true, 'small')}
+      ${btn('Beat guardian', 'dev', 'guardian', true, 'small')}${btn('+5 zones', 'dev', 'zones', true, 'small')}${btn('+50 Favor', 'dev', 'favor', true, 'small')}${btn('+1 prestige count', 'dev', 'prestigeCount', true, 'small')}
       ${btn('All research', 'dev', 'research', true, 'small')}${btn('Simulate 1h away', 'dev', 'away', true, 'small')}</div>
     <h3>Developer: skills</h3>
     ${SKILL_IDS.map((id) => `<div class="row"><div class="grow"><b>${SKILLS[id].icon} ${SKILLS[id].name}</b> <span class="num">Lv ${skillLevel(s, id)}</span>

@@ -1,4 +1,6 @@
 // Player actions. Each returns true when something changed.
+import { MINIGAMES } from '../data/minigames';
+import { gameForPrestige } from './minigames';
 import { CLASSES, ClassId, COMBO_MAX, COMBO_STEP, COMBO_WINDOW, DIVINE, FLOORS, FloorId, GEAR, GodId, JobId, JOBS, RaceId, RESEARCH, ResId, RELICS } from '../data/defs';
 import { derive, div, floorCostMult, pendingFavor, canPrestige } from './calc';
 import { emit, toast } from './events';
@@ -200,6 +202,10 @@ export function prestige(s: GameState, keep: string[], race: RaceId, god: GodId,
   if (respec) respecTrees(s);
   s.run = newRun(s.meta, s.meta.races.includes(race) ? race : 'dwarf', s.meta.gods.includes(god) ? god : 'forge');
   toast(`A new expedition begins! +${gain + bonus} Divine Favor.`, 'epic');
+  const game = gameForPrestige(s.meta.prestiges);
+  if (game && MINIGAMES[game].built) {
+    toast(`New mini-game unlocked: ${MINIGAMES[game].icon} ${MINIGAMES[game].name}! Find it in the Games tab.${game === 'dice' ? ' (It needs a Tavern.)' : ''}`, 'epic');
+  }
   emit('prestige');
   return true;
 }
