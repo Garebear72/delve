@@ -60,6 +60,11 @@ export class MineView {
     this.ctx = canvas.getContext('2d')!;
     this.resize();
     addEventListener('resize', () => this.resize());
+    // Mouse wheel / trackpad scrolls the mine on PC.
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      this.scrollBy(e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY);
+    }, { passive: false });
     canvas.addEventListener('pointerdown', (e) => {
       try { canvas.setPointerCapture(e.pointerId); } catch { /* not capturable; fine */ }
       this.pointers.set(e.pointerId, { startX: e.clientX, startY: e.clientY, lastY: e.clientY, lastT: performance.now(), moved: 0 });
@@ -84,7 +89,9 @@ export class MineView {
       if (!p) return;
       this.pointers.delete(e.pointerId);
       if (e.pointerId === this.scroller) this.scroller = -1;
-      if (p.moved < 10 && e.type === 'pointerup') this.tapAt(e.clientX, e.clientY);
+      // Canvas-relative position: the mine isn't always at the window's top-left (PC layouts).
+      const rect = canvas.getBoundingClientRect();
+      if (p.moved < 10 && e.type === 'pointerup') this.tapAt(e.clientX - rect.left, e.clientY - rect.top);
     };
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
@@ -131,12 +138,15 @@ export class MineView {
     return x >= b.x - 8 && x <= b.x + BTN + 8 && wy >= b.y - 6 && wy <= b.y + BTN + 6;
   }
 
+  /** Match the canvas to its on-screen size (CSS decides it: full screen on phones, left of the panel on PC). */
   resize() {
     this.dpr = Math.min(2, devicePixelRatio || 1);
-    this.w = innerWidth; this.h = innerHeight;
-    this.canvas.width = this.w * this.dpr; this.canvas.height = this.h * this.dpr;
-    this.canvas.style.width = this.w + 'px'; this.canvas.style.height = this.h + 'px';
+    this.w = Math.max(1, this.canvas.clientWidth || innerWidth); this.h = Math.max(1, this.canvas.clientHeight || innerHeight);
+    this.canvas.width = Math.round(this.w * this.dpr); this.canvas.height = Math.round(this.h * this.dpr);
   }
+
+  /** Scroll the view (mouse wheel, keyboard). */
+  scrollBy(dy: number) { this.scrollY += dy; this.vel = 0; this.follow = false; }
 
   jumpToFront() { this.follow = true; }
   frontVisible() {

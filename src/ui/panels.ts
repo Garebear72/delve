@@ -394,6 +394,8 @@ export function settingsPanel(s: GameState, d: Derived, ui: UIState) {
     <h3>Install on your phone</h3>
     <p class="sub">In Chrome, tap ⋮ → <b>Add to Home screen</b> (or <b>Install app</b>). Delve then opens full-screen and works offline.</p>
     <h3>Options</h3>
+    <div class="row"><div class="grow"><b>Screen layout</b><div class="sub">Auto uses the wide layout on big screens (mine, battle and panels side by side) and the phone layout on small ones.</div></div>
+      <div class="wrap">${(['auto', 'phone', 'wide'] as const).map((l) => btn(l[0].toUpperCase() + l.slice(1), 'layout', l, true, prefs.layout === l ? 'on small' : 'small')).join('')}</div></div>
     <div class="row"><div class="grow"><b>Sound effects</b><div class="sub">Little bleeps and bloops, made on the spot.</div></div>${btn(prefs.sound ? 'On' : 'Off', 'sound', '', true, prefs.sound ? 'on' : '')}</div>
     ${prefs.sound ? `<div class="row"><div class="grow"><b>Volume</b></div><div class="wrap">${[['Quiet', 0.35], ['Normal', 0.7], ['Loud', 1]].map(([n, v]) => btn(n as string, 'volume', v, true, prefs.volume === v ? 'on small' : 'small')).join('')}</div></div>` : ''}
     <div class="row"><div class="grow"><b>Vibrate on tap</b><div class="sub">A tiny buzz each time you tap to dig.</div></div>${btn(prefs.vibrate ? 'On' : 'Off', 'vibrate', '', true, prefs.vibrate ? 'on' : '')}</div>

@@ -15,6 +15,7 @@ import { MineView } from '../render/mine';
 import { icon } from '../render/sprites';
 import { fmt, fmtRate, fmtTime } from './format';
 import { prefs, savePrefs } from './prefs';
+import { applyLayout, docked, layout } from './layout';
 import { skillsPanel, unspentPoints } from './skillsPanel';
 import type { SkillId } from '../data/skills';
 import { buyPerk, learn, reconcileTrees, respecPerks, respecTrees, skillLevel, toggleEquip, xpForLevel } from '../game/skills';
@@ -43,7 +44,10 @@ export function buildShell() {
     <canvas id="mine"></canvas>
     <div id="topbar"></div>
     <div id="hint"></div>
+    <div id="arcadeBack" class="hidden"></div>
     <div id="arcade" class="hidden"></div>
+    <canvas id="strip"></canvas>
+    <div id="battleCol"><div id="battlePanel"></div></div>
     <button id="jump" class="btn">⬇ Dig front</button>
     <button id="update" class="btn epic" data-act="applyUpdate">✨ Update available! Tap to update</button>
     <canvas id="pip"></canvas>
@@ -57,6 +61,13 @@ export function buildShell() {
   $('pip').addEventListener('click', () => openTab('battle'));
   $('topbar').addEventListener('click', closeSheet);
   $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
+  // On big screens mini-games float in a window: clicking outside it steps back out.
+  $('arcadeBack').addEventListener('click', () => openGame(null));
+  $('strip').addEventListener('click', () => openTab('battle'));
+  bindKeys();
+  addEventListener('resize', () => { if (applyLayout()) onLayoutChange(); });
+  applyLayout();
+  onLayoutChange();
   bindSheetGestures();
   // Plinko: tap the board to drop a ball in that column.
   $('arcade').addEventListener('pointerdown', (e) => {
@@ -74,7 +85,7 @@ export function buildShell() {
     if (ignorePops > 0) { ignorePops--; return; }
     if (modal) closeModal(true);
     else if (ui.game) openGame(null, true);
-    else if (ui.tab) openTab(null, true);
+    else if (ui.tab && !docked()) openTab(null, true);
   });
 
   on('toast', ({ text, kind }) => toast(text, kind));
@@ -91,7 +102,7 @@ export function createMine() {
     $('mine') as HTMLCanvasElement,
     // Tapping anywhere in the mine digs (or just closes an open panel).
     () => {
-      if (ui.tab) { closeSheet(); return; }
+      if (ui.tab && !docked()) { closeSheet(); return; }
       A.tapDig(store.state);
       if (prefs.vibrate) navigator.vibrate?.(8);
       refresh();
@@ -115,6 +126,14 @@ export function createMine() {
 let ignorePops = 0;
 
 export function openTab(tab: string | null, fromHistory = false) {
+  if (docked()) {
+    // The panel is always showing beside the mine: tabs just switch it (no closing, no history entries).
+    if (tab && tab !== 'mine' && !(layout === 'xwide' && tab === 'battle')) ui.tab = tab;
+    if (!ui.tab) ui.tab = 'colony';
+    $('sheetBody').scrollTop = 0;
+    render();
+    return;
+  }
   const wasOpen = !!ui.tab;
   ui.tab = ui.tab === tab ? null : tab;
   if (tab === 'build' || tab === 'floor') ui.tab = tab;
@@ -138,6 +157,7 @@ export function openGame(id: string | null, fromHistory = false) {
     else if (was && !id && history.state?.delve === 'game') { ignorePops++; history.back(); }
   }
   $('arcade').classList.toggle('hidden', !id);
+  $('arcadeBack').classList.toggle('hidden', !id);
   render();
 }
 
@@ -153,7 +173,51 @@ function toast(text: string, kind = 'info') {
   setTimeout(() => el.remove(), 4000);
 }
 
-export function closeSheet() { if (ui.tab) openTab(null); }
+export function closeSheet() { if (ui.tab && !docked()) openTab(null); }
+
+/** Re-arrange for a new layout (window resized, or the Layout setting changed). */
+function onLayoutChange() {
+  if (docked()) {
+    if (!ui.tab || ui.tab === 'mine' || (layout === 'xwide' && ui.tab === 'battle')) ui.tab = 'colony';
+    $('sheet').classList.add('open');
+  } else {
+    $('sheet').classList.toggle('open', !!ui.tab);
+  }
+  mine?.resize();
+  if (store.state) render();
+}
+
+/** PC keyboard: Space digs, 1–9 pick a tab, Esc steps back, arrows/PageUp/PageDown scroll the mine, Home jumps to the dig front. */
+function bindKeys() {
+  addEventListener('keydown', (e) => {
+    const t = e.target as HTMLElement;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Escape') {
+      if (modal) closeModal();
+      else if (ui.game) openGame(null);
+      else closeSheet();
+      return;
+    }
+    if (modal || ui.game) return;
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      if (e.repeat) return;
+      unlockAudio();
+      A.tapDig(store.state);
+      refresh();
+      return;
+    }
+    if (/^[1-9]$/.test(e.key)) {
+      const tabs = [...document.querySelectorAll<HTMLElement>('#tabs .tab')].filter((b) => b.offsetParent !== null);
+      tabs[Number(e.key) - 1]?.click();
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'PageDown') { e.preventDefault(); mine.scrollBy(e.key === 'PageDown' ? 400 : 80); }
+    if (e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); mine.scrollBy(e.key === 'PageUp' ? -400 : -80); }
+    if (e.key === 'Home') mine.jumpToFront();
+  });
+}
 
 /** Swipe down on a panel's top (or on its content when scrolled to the top) to close it. */
 function bindSheetGestures() {
@@ -223,7 +287,13 @@ export function showOffline(rep: OfflineReport) {
 function onClick(e: MouseEvent) {
   markInput();
   const el = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
-  if (el) { if ((el as HTMLButtonElement).disabled) return; sfx('click'); act(el.dataset.act!, el.dataset.arg ?? ''); return; }
+  if (el) {
+    if ((el as HTMLButtonElement).disabled) return;
+    sfx('click');
+    (el as HTMLElement).blur?.(); // so Space (dig) doesn't press the same button again on PC
+    act(el.dataset.act!, el.dataset.arg ?? '');
+    return;
+  }
   const tab = (e.target as HTMLElement).closest('[data-tab]') as HTMLElement | null;
   if (tab) openTab(tab.dataset.tab === 'mine' ? null : tab.dataset.tab!);
 }
@@ -361,6 +431,7 @@ function act(name: string, arg: string) {
       } catch { toast("That doesn't look like a Delve save code.", 'bad'); }
       return;
     }
+    case 'layout': prefs.layout = arg as 'auto' | 'phone' | 'wide'; savePrefs(); applyLayout(); onLayoutChange(); toast(`Layout: ${arg}`, 'good'); break;
     case 'vibrate': prefs.vibrate = !prefs.vibrate; savePrefs(); if (prefs.vibrate) navigator.vibrate?.(20); break;
     case 'sound': prefs.sound = !prefs.sound; savePrefs(); unlockAudio(); sfx('good'); break;
     case 'volume': prefs.volume = Number(arg); savePrefs(); setVolume(prefs.volume); sfx('coin'); break;
@@ -443,6 +514,10 @@ export function render() {
     case 'build': html = buildPanel(s, d, ui); break;
     case 'floor': html = floorPanel(s, d, ui); break;
   }
+  if (layout === 'xwide') {
+    const bp = s.run.combatUnlocked ? battlePanel(s, d, ui) : lockedPanel('battle');
+    morphdom($('battlePanel'), `<div id="battlePanel">${bp}</div>`, { onBeforeElUpdated: (from) => from.tagName !== 'CANVAS' });
+  }
   if (ui.game) morphdom($('arcade'), `<div id="arcade">${arcadeView(s, ui.game as GameId | 'dungeon', arcade)}</div>`, { onBeforeElUpdated: (from) => from.tagName !== 'CANVAS' });
   morphdom(panel, `<div id="panel">${html}</div>`, {
     onBeforeElUpdated: (from) => !(from.tagName === 'CANVAS' || (from as HTMLElement).dataset?.keep === '1' && from === document.activeElement),
@@ -504,11 +579,12 @@ function renderTabs() {
     ['settings', 'Menu', '☰'],
   ];
   const active = ui.tab ?? 'mine';
-  const html = tabs.map(([id, name, ic]) => {
+  const shown = tabs.filter(([id]) => !(docked() && id === 'mine') && !(layout === 'xwide' && id === 'battle'));
+  const html = shown.map(([id, name, ic], i) => {
     const locked = tabLocked(id);
     const cls = (active === id || (id === 'mine' && (active === 'build' || active === 'floor')) ? 'on' : '') + (locked ? ' locked' : '');
     const dot = id === 'skills' && unspentPoints(s) > 0 ? `<i class="dot">${unspentPoints(s)}</i>` : '';
-    return `<button id="tab-${id}" class="tab ${cls}" data-tab="${id}">${locked ? '<i class="lock">🔒</i>' : ''}${dot}${ic}<span>${name}</span></button>`;
+    return `<button id="tab-${id}" class="tab ${cls}" data-tab="${id}" title="${name} (${i + 1})">${locked ? '<i class="lock">🔒</i>' : ''}${dot}${ic}<span>${name}</span></button>`;
   }).join('');
   morphdom($('tabs'), `<nav id="tabs">${html}</nav>`);
 }
@@ -546,14 +622,22 @@ function renderHint() {
   const el = $('hint');
   el.textContent = hint || (goal ? `🎯 ${goal}` : '');
   el.classList.toggle('goal', !hint && !!goal);
-  el.classList.toggle('show', !!(hint || goal) && !ui.tab);
+  el.classList.toggle('show', !!(hint || goal) && (!ui.tab || docked()));
 }
 
 export function frameUI() {
   $('update').classList.toggle('show', updateReady);
-  $('jump').classList.toggle('show', !mine.frontVisible() && !ui.tab);
-  const pip = $('pip');
-  pip.classList.toggle('show', ui.pip && store.state.run.combatUnlocked && ui.tab !== 'battle');
+  $('jump').classList.toggle('show', !mine.frontVisible() && (!ui.tab || docked()));
+  const fighting = store.state.run.combatUnlocked;
+  $('pip').classList.toggle('show', !docked() && ui.pip && fighting && ui.tab !== 'battle');
+  // Wide layout: a battle strip above the docked panel (unless the Battle tab itself is open).
+  const strip = layout === 'wide' && fighting && ui.tab !== 'battle';
+  $('strip').classList.toggle('show', strip);
+  document.body.classList.toggle('has-strip', strip);
+  document.documentElement.style.setProperty('--top-h', $('topbar').offsetHeight + 'px');
 }
-export const battleCanvas = () => (ui.tab === 'battle' ? (document.getElementById('battle') as HTMLCanvasElement | null) : null);
-export const pipCanvas = () => ($('pip').classList.contains('show') ? ($('pip') as HTMLCanvasElement) : null);
+/** The canvas showing the full battle view: the Battle tab, or the battle column on very wide screens. */
+export const battleCanvas = () => (ui.tab === 'battle' || layout === 'xwide' ? (document.getElementById('battle') as HTMLCanvasElement | null) : null);
+/** The small battle view: the mini window on phones, the strip in the wide layout. */
+export const pipCanvas = () => ($('strip').classList.contains('show') ? ($('strip') as HTMLCanvasElement)
+  : $('pip').classList.contains('show') ? ($('pip') as HTMLCanvasElement) : null);

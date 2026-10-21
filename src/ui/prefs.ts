@@ -1,5 +1,5 @@
 // Per-device preferences (not part of the save, so they don't travel with exports).
-export const prefs = { vibrate: true, sound: true, volume: 0.7 };
+export const prefs = { vibrate: true, sound: true, volume: 0.7, layout: 'auto' as 'auto' | 'phone' | 'wide' };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('delve.prefs') ?? '{}')); } catch { /* defaults */ }
 
 export function savePrefs() {
