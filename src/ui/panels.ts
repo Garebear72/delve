@@ -1,12 +1,12 @@
 // HTML for each sheet panel. Buttons use data-act / data-arg and are handled in ui.ts.
 import {
   ABILITIES, AbilityId, ACHIEVEMENTS, ACH_BONUS, ADJACENCY, CLASSES, CLASS_IDS, DIVINE, ENEMIES, FLOORS, FLOOR_IDS, FOOD_PER_COLONIST, GEAR, GODS, GUARDIANS,
-  ITEMS, JOBS, JOB_IDS, RACES, RELICS, RESEARCH, RESOURCES, RES_IDS, ResId,
+  GodId, ITEMS, JOBS, JOB_IDS, RACES, RaceId, RELICS, RESEARCH, RESOURCES, RES_IDS, ResId,
 } from '../data/defs';
 import {
   canAfford, divineCost, floorBuildCost, floorUnlocked, floorUpgradeCost, gearLevelCost, gearTierCost, gearTierReady, reliquarySlots, researchCost,
 } from '../game/actions';
-import { biomeAt, canPrestige, Derived, div, enemyStats, hasAbility, hasAutoCast, floorPower, gearMult, pendingFavor, squadStats } from '../game/calc';
+import { biomeAt, canPrestige, Derived, div, divMult, enemyStats, hasAbility, hasAutoCast, floorPower, gearMult, pendingFavor, squadStats } from '../game/calc';
 import { backupTime, hasBackup, listSlots } from '../game/save';
 import type { GameState } from '../game/state';
 import { store } from '../game/store';
@@ -219,7 +219,8 @@ export function divinePanel(s: GameState, d: Derived) {
     const lvl = div(s, x.id);
     const maxed = x.max !== undefined && lvl >= x.max;
     const cost = divineCost(s, x.id);
-    return `<div class="row"><div class="grow"><b>${x.name}</b> <span class="num">${lvl}${x.max ? '/' + x.max : ''}</span><div class="sub">${x.desc}</div>
+    const now = x.mult && lvl ? ` Now ×${fmt(divMult(s, x.id))}.` : '';
+    return `<div class="row"><div class="grow"><b>${x.name}</b> <span class="num">${lvl}${x.max ? '/' + x.max : ''}</span><div class="sub">${x.desc}${now}</div>
       ${maxed ? '' : `<span class="cost ${m.favor >= cost ? '' : 'short'}">${icon('i_favor')}${fmt(cost)}</span>`}</div>
       ${maxed ? '<span class="tag good">Max</span>' : btn('Bless', 'divine', x.id, m.favor >= cost)}</div>`;
   }).join('');
@@ -237,6 +238,14 @@ export function divinePanel(s: GameState, d: Derived) {
     <div class="sub">${RACES[s.run.race].desc} ${GODS[s.run.god].desc}</div>`;
 }
 
+/** Locked races and gods, with how to unlock them. */
+function patronHints(s: GameState) {
+  const lockedR = (Object.keys(RACES) as RaceId[]).filter((id) => !s.meta.races.includes(id)).map((id) => `${RACES[id].name} (${RACES[id].unlockText})`);
+  const lockedG = (Object.keys(GODS) as GodId[]).filter((id) => !s.meta.gods.includes(id)).map((id) => `${GODS[id].name.split(',')[0]} (${GODS[id].unlockText})`);
+  const all = [...lockedR, ...lockedG];
+  return all.length ? `<p class="sub">🔒 Still to unlock: ${all.join(' · ')}</p>` : '';
+}
+
 export function prestigeModal(s: GameState, d: Derived, ui: UIState) {
   const slots = reliquarySlots(s);
   const relics = s.run.relics.map((id) => {
@@ -251,7 +260,7 @@ export function prestigeModal(s: GameState, d: Derived, ui: UIState) {
     <h3>Reliquary <span class="sub">keep ${ui.keep.length} / ${slots}</span></h3><div class="col">${relics}</div>
     <h3>Race</h3><div class="wrap">${races}</div><div class="sub">${r?.desc ?? ''}</div>
     <h3>God</h3><div class="wrap">${gods}</div><div class="sub">${g?.desc ?? ''}</div>
-    ${s.meta.prestiges === 0 ? '<p class="sub">Your first prestige also unlocks a new race and a new god.</p>' : ''}
+    ${patronHints(s)}
     <h3>Skill trees</h3>
     <div class="row"><div class="grow"><b>Reset my skill trees</b><div class="sub">Prestige is the only time major trees can be respecced. Skill levels are always kept.</div></div>
       ${btn(ui.respec ? 'Yes' : 'No', 'respecToggle', '', Object.keys(s.meta.alloc).length > 0, ui.respec ? 'on' : '')}</div>

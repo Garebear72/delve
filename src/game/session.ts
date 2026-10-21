@@ -27,7 +27,7 @@ export function saveNow(): boolean {
 }
 
 export function offlineCap(s: GameState) {
-  return (8 + 4 * div(s, 'memory') + bonuses(s).offline) * 3600;
+  return (8 + 4 * div(s, 'memory') + bonuses(s).offline + (s.run.god === 'moss' ? 8 : 0)) * 3600;
 }
 
 export function applyOffline(seconds: number): OfflineReport {

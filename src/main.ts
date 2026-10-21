@@ -9,7 +9,7 @@ import { advance } from './game/sim';
 import { checkForUpdate } from './game/update';
 import { refresh, store } from './game/store';
 import { CombatView } from './render/combat';
-import { battleCanvas, buildShell, createMine, frameUI, mine, pipCanvas, render, showOffline } from './ui/ui';
+import { arcade, arcadeCanvas, battleCanvas, buildShell, createMine, frameUI, mine, pipCanvas, render, showOffline, ui } from './ui/ui';
 
 if (import.meta.env.DEV) (window as any).delve = store; // debugging handle in dev only
 
@@ -35,6 +35,8 @@ function frame(now: number) {
   mine.render(store.state, store.d, t, dt);
   const canvas = battleCanvas() ?? pipCanvas();
   if (canvas && store.state.run.combatUnlocked) combat.draw(canvas, store.state, store.d, t, dt, canvas.id === 'pip');
+  const ac = arcadeCanvas();
+  if (ac && ui.game) arcade.draw(ac, ui.game, store.state, t, dt);
 
   uiTimer += dt;
   if (uiTimer > 0.25) { uiTimer = 0; render(); }

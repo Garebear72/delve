@@ -1,6 +1,8 @@
 // The Games tab: mini-games (one unlocks per prestige) and the Curio collection.
-import { CURIOS, CURIO_MAX, curioDesc, DICE, GameId, GAME_IDS, MINIGAMES, RARITIES } from '../data/minigames';
-import { diceLuck, diceOpen, diceStake, gameUnlocked, hasTavern } from '../game/minigames';
+import { BOONS, BOON_IDS, BoonId, CART, CURIOS, CURIO_MAX, curioDesc, DICE, GameId, GAME_IDS, MINIGAMES, PLINKO, RARITIES } from '../data/minigames';
+import {
+  boon, cartStake, diceLuck, diceOpen, diceStake, freeSpinsLeft, gameOpen, gameUnlocked, plinkoCost, plinkoGold, VENUES, venueOpen, wheelCost, wheelOpen,
+} from '../game/minigames';
 import type { GameState } from '../game/state';
 import { icon } from '../render/sprites';
 import { fmt } from './format';
@@ -36,20 +38,25 @@ export function gamesPanel(s: GameState) {
 }
 
 function gameStatus(s: GameState, id: GameId) {
-  if (id === 'dice') return hasTavern(s) ? `Bet ${fmt(diceStake(s))} gold` : '🔒 Needs a Tavern this run';
+  if (!venueOpen(s, id)) return `🔒 Needs ${VENUES[id]!.name} built this run`;
+  if (id === 'dice') return `Bet ${fmt(diceStake(s))} gold`;
+  if (id === 'plinko') return `${fmt(plinkoCost(s))} stone per drop`;
+  if (id === 'cart') return `Ride for ${fmt(cartStake(s))} gold`;
+  if (id === 'wheel') return freeSpinsLeft(s) ? '✨ Free spin ready!' : `Spin for ${fmt(wheelCost(s))} Favor`;
   return '';
 }
 
 /** Full-screen view for one game. The header and the events strip are shared by every game. */
-export function arcadeView(s: GameState, id: GameId) {
+export function arcadeView(s: GameState, id: GameId, ui: { lastBoon: string; spinning: boolean }) {
   const g = MINIGAMES[id];
   const found = Object.keys(CURIOS).filter((c) => CURIOS[c].game === id);
   const have = found.filter((c) => s.meta.curios[c]).length;
-  const body = id === 'dice' ? diceTable(s) : '';
+  const body = id === 'dice' ? diceTable(s) : id === 'plinko' ? plinkoView(s) : id === 'cart' ? cartView(s) : wheelView(s, ui);
+  const chips = id === 'plinko' ? [['i_stone', s.run.res.stone], ['i_gold', s.run.res.gold]] : id === 'wheel' ? [['i_favor', s.meta.favor]] : [['i_gold', s.run.res.gold]];
   return `<div class="arcade-head">
       <button class="btn" data-act="closeGame">← Back</button>
       <b class="grow">${g.icon} ${g.name}</b>
-      <div class="chip">${icon('i_gold')}<b>${fmt(s.run.res.gold)}</b></div>
+      ${chips.map(([ic, v]) => `<div class="chip">${icon(ic as string)}<b>${fmt(v as number)}</b></div>`).join('')}
     </div>
     <div class="arcade-events" id="arcadeEvents"></div>
     <div class="arcade-body">${body}</div>
@@ -87,6 +94,57 @@ function diceTable(s: GameState) {
     ${controls}
     <div class="sub rules">Beat the goblin's total to win ×${DICE.payout}. Ties go to the goblin. Double sixes pay ×${DICE.boxcars}.
       Every roll might turn up a Curio, and each win in a row makes one more likely. The bet grows as your Expedition goes deeper.</div>`;
+}
+
+const closedVenue = (s: GameState, id: GameId, text: string) =>
+  `<div class="table"><p class="quip">${text}</p><div class="sub">Build ${VENUES[id]!.name} this run to play.</div></div>`;
+
+function plinkoView(s: GameState) {
+  const cost = plinkoCost(s);
+  const ok = s.run.res.stone >= cost;
+  return `<canvas id="arcadeCanvas" class="arcade-canvas tall"></canvas>
+    <div class="pot">${ok ? 'Tap the board to drop' : 'Not enough stone'} · ${icon('i_stone')}<b>${fmt(cost)}</b> per drop</div>
+    <div class="bigbtns">${btn('Drop in the middle', 'plinkoDrop', 4, ok, 'epic big')}</div>
+    <div class="sub rules">Each drop tips ${fmt(cost)} stone down the board for ${fmt(plinkoGold(s))} gold × the slot it lands in.
+      Balls that bounce off the sides fall in the gutter. Drops near the middle are safest; the edges chase the ×5 slots (${PLINKO.edgeLuck}× Curio luck).
+      Pass through the ✨ golden peg for ${PLINKO.goldenLuck}× Curio luck. It moves after every drop.</div>`;
+}
+
+function cartView(s: GameState) {
+  if (!gameOpen(s, 'cart')) return '';
+  const c = s.run.cart;
+  const stake = cartStake(s);
+  const quip = c.result === 'crash' ? '💥 CRASH! The cart is in pieces. So is the gold.'
+    : c.result === 'cashout' ? '🛑 You hop off and count your gold.'
+    : c.result === 'end' ? '🏁 You made it to the end of the line!'
+    : c.result === 'riding' ? (c.step ? `Fork ${c.step} survived! Which track next?` : 'The cart is rolling. Pick a track!')
+    : 'The cart creaks invitingly.';
+  const controls = c.pot > 0 && c.result === 'riding'
+    ? `<div class="pot">Pot ${icon('i_gold')}<b>${fmt(c.pot)}</b> · fork ${c.step + 1} of ${CART.forks}</div>
+       <div class="bigbtns">
+         ${btn(`🪵 Sturdy track · ${Math.round(CART.sturdy.safe * 100)}% safe · ×${CART.sturdy.mult}`, 'cartFork', 'sturdy', true, 'big')}
+         ${btn(`⚠️ Rickety track · ${Math.round(CART.rickety.safe * 100)}% safe · ×${CART.rickety.mult}`, 'cartFork', 'rickety', true, 'big')}
+         ${btn(`Bail out with ${fmt(c.pot)}`, 'cartCash', '', c.step >= 1, 'epic big')}
+       </div>`
+    : `<div class="pot">Ride ${icon('i_gold')}<b>${fmt(stake)}</b></div>
+       <div class="bigbtns">${btn(`Ride for ${fmt(stake)} gold`, 'cartStart', '', s.run.res.gold >= stake, 'epic big')}</div>`;
+  return `<canvas id="arcadeCanvas" class="arcade-canvas"></canvas>
+    <p class="quip center">${quip}</p>${controls}
+    <div class="sub rules">${CART.forks} forks per ride. Sturdy track is safer; rickety track pays more and builds more Curio luck.
+      Every fork you survive is another Curio roll when the ride ends. Bail out any time after the first fork.</div>`;
+}
+
+function wheelView(s: GameState, ui: { lastBoon: string; spinning: boolean }) {
+  if (!wheelOpen(s)) return closedVenue(s, 'wheel', 'The gods only spin their wheel at a Shrine.');
+  const cost = wheelCost(s);
+  const free = freeSpinsLeft(s) > 0;
+  const result = ui.spinning ? '<div class="result">Spinning…</div>'
+    : ui.lastBoon ? `<div class="result" style="color:${BOONS[ui.lastBoon as BoonId].color}">${BOONS[ui.lastBoon as BoonId].name}!</div><div class="sub center">${BOONS[ui.lastBoon as BoonId].desc}</div>` : '';
+  const active = BOON_IDS.filter((id) => boon(s, id) > 0).map((id) => `<span class="tag" style="background:${BOONS[id].color};color:#1b1622">${BOONS[id].name}${boon(s, id) > 1 ? ' ×' + boon(s, id) : ''}</span>`).join(' ');
+  return `<canvas id="arcadeCanvas" class="arcade-canvas tall"></canvas>${result}
+    <div class="bigbtns">${btn(free ? '✨ Free spin!' : `Spin for ${fmt(cost)} Favor`, 'wheelSpin', '', !ui.spinning && s.meta.favor >= cost, 'epic big')}</div>
+    ${active ? `<div class="sub center">Blessings this run: ${active}</div>` : ''}
+    <div class="sub rules">One free spin every run. Extra spins cost Favor, doubling each time this run. Blessings last until you prestige.</div>`;
 }
 
 /** Every Curio of the unlocked games, found or not. */

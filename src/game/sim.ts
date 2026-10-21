@@ -1,7 +1,7 @@
 // The simulation: advances the game by dt seconds.
 import {
   ABILITIES, AbilityId, ACHIEVEMENTS, BIOMES, BOSS_RELICS, CLASSES, CLASS_IDS, CRIT_CHANCE, ENEMIES, FLOORS, FLOOR_IDS, GUARDIANS, HEAL_PULSE,
-  FOOD_PER_BIRTH, ITEMS, KILL_HEAL, MAX_VOLLEYS, RELICS, RES_IDS, STARVE_INTERVAL, ZONE_CELLS,
+  FOOD_PER_BIRTH, GODS, GodId, ITEMS, KILL_HEAL, MAX_VOLLEYS, ORES, RACES, RaceId, RELICS, RESOURCES, RES_IDS, STARVE_INTERVAL, ZONE_CELLS,
 } from '../data/defs';
 import { derive, Derived, enemyFor, enemyStats, goldMult, hasAbility, hasAutoCast, levelHp, squadStats } from './calc';
 import { emit, toast } from './events';
@@ -101,7 +101,7 @@ export function digCheck(s: GameState) {
     // A guardian seals this level: leftover progress is lost rather than banked on the sealed level.
     if (derive(s).blocked >= 0) { r.dig = 0; break; }
     r.dig -= levelHp(r.depth);
-    addXp(s, 'digging', XP.levelBase * Math.pow(1.1, r.depth));
+    addXp(s, 'digging', XP.levelBase * Math.pow(XP.levelGrowth, r.depth));
     r.depth++;
     r.floors.push(null);
     add(s, 'levels', 1);
@@ -329,16 +329,31 @@ export function retryZoneBoss(s: GameState) {
 }
 
 // ---------------------------------------------------------------- unlocks & achievements
+/** Races and gods unlock permanently when their condition is first met. */
+const PATRON_UNLOCKS: { kind: 'race' | 'god'; id: string; check: (s: GameState) => boolean }[] = [
+  { kind: 'race', id: 'goblin', check: (s) => s.meta.prestiges >= 1 },
+  { kind: 'god', id: 'snorg', check: (s) => s.meta.prestiges >= 1 },
+  { kind: 'god', id: 'pebble', check: (s) => (s.meta.lifetime['res.stone'] ?? 0) >= 1000 },
+  { kind: 'race', id: 'gnome', check: (s) => s.meta.prestiges >= 3 },
+  { kind: 'god', id: 'krog', check: (s) => s.run.guardians.includes(2) },
+  { kind: 'race', id: 'kobold', check: (s) => s.meta.bestDepth >= 80 },
+  { kind: 'god', id: 'moss', check: (s) => s.meta.prestiges >= 5 },
+];
+export function checkPatrons(s: GameState) {
+  for (const u of PATRON_UNLOCKS) {
+    const list = (u.kind === 'race' ? s.meta.races : s.meta.gods) as string[];
+    if (list.includes(u.id) || !u.check(s)) continue;
+    list.push(u.id);
+    const name = u.kind === 'race' ? RACES[u.id as RaceId].name : GODS[u.id as GodId].name;
+    toast(u.kind === 'race' ? `New race unlocked: ${name}! Choose them when you prestige.` : `${name} has noticed you. New god unlocked! Choose them when you prestige.`, 'epic');
+  }
+}
 function checkProgress(s: GameState) {
   const r = s.run;
   for (const a of ACHIEVEMENTS) {
     if (!s.meta.achievements.includes(a.id) && a.check(s)) {
       s.meta.achievements.push(a.id);
       emit('achievement', a);
-      if (a.id === 'stone1k' && !s.meta.gods.includes('pebble')) {
-        s.meta.gods.push('pebble');
-        toast('Pebble, God of Rocks, has noticed your rock enthusiasm. New god unlocked!', 'epic');
-      }
     }
   }
   const once = (id: string, cond: boolean, text: string, kind: 'good' | 'epic' = 'good') => {
@@ -350,8 +365,8 @@ function checkProgress(s: GameState) {
       once('floor.' + f, FLOORS[f].unlock(s), `New floor unlocked: ${FLOORS[f].name}!${extra}`);
     }
   }
-  once('copper', r.depth >= BIOMES[1].from, 'Copper veins! Miners now haul up copper.');
-  once('iron', r.depth >= BIOMES[3].from, 'Iron! Miners now haul up iron.');
+  for (const o of ORES) once(o.res, r.depth >= BIOMES[o.biome].from, `${RESOURCES[o.res].name}! Miners now haul up ${RESOURCES[o.res].name.toLowerCase()}.`);
+  checkPatrons(s);
   // 'divine2': older builds set 'divine' at depth 8, which would hide this announcement on their saves.
   once('divine2', r.guardians.includes(0) && s.meta.prestiges === 0, 'The gods are watching… The Divine tab is open. You can now prestige!', 'epic');
   const g = derive(s).blocked;

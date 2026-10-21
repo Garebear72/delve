@@ -2,7 +2,7 @@
 import { CURIOS, CURIO_MAX, CurioEffect } from '../data/minigames';
 import {
   AbilityId, ACH_BONUS, ADJACENCY, BIOMES, CLASSES, CLASS_IDS, ENEMIES, FLOOR_IDS, FloorId, ENEMY_ATK, ENEMY_ATK_GROWTH, ENEMY_HP, ENEMY_HP_GROWTH, FOOD_PER_COLONIST, GEAR, GROWTH_BASE, GROWTH_PER_POP, GUARDIANS, JobId,
-  CRIT_CHANCE, KILL_HEAL, RELICS, RelicEffect, RES_IDS, ResId, ZONE_CELLS,
+  CRIT_CHANCE, DEEP_FROM, DIVINE, ENEMY_ATK_LATE, ENEMY_HP_LATE, FAVOR_DEEP, FAVOR_ZONE, LATE_ZONE, LEVEL_HP, LEVEL_HP_DEEP, LEVEL_HP_GROWTH, RESOURCES, KILL_HEAL, ORES, RELICS, RelicEffect, RESEARCH, ResearchStat, RES_IDS, ResId, ZONE_CELLS,
 } from '../data/defs';
 import { leftAlone } from './input';
 import { bonuses, equipped } from './skills';
@@ -23,8 +23,27 @@ export function blockingGuardian(s: GameState): number {
   return -1;
 }
 
-export const levelHp = (level: number) => 200 * Math.pow(1.2, level);
+/** Toughness of each mine level: steep through the first five biomes, gentler past the Magma Rift. */
+export const levelHp = (level: number) =>
+  LEVEL_HP * Math.pow(LEVEL_HP_GROWTH, Math.min(level, DEEP_FROM)) * Math.pow(LEVEL_HP_DEEP, Math.max(0, level - DEEP_FROM));
 export const div = (s: GameState, id: string) => s.meta.divine[id] ?? 0;
+/** Wheel of the Gods blessings taken this run. */
+export const boonOf = (s: GameState, id: string) => s.run.boons[id] ?? 0;
+const DIVINE_MULT = Object.fromEntries(DIVINE.map((x) => [x.id, x.mult ?? 0]));
+/** Compounding Divine Tree multiplier: (1 + mult)^level. */
+export const divMult = (s: GameState, id: string) => Math.pow(1 + (DIVINE_MULT[id] ?? 0), div(s, id));
+
+/** Product of every completed research's multiplier for this stat. */
+export function researchMult(s: GameState, stat: ResearchStat): number {
+  let m = 1;
+  for (const id of s.run.research) {
+    const v = RESEARCH_BY_ID[id]?.effects?.[stat];
+    if (v) m *= 1 + v;
+  }
+  return m;
+}
+const RESEARCH_BY_ID = Object.fromEntries(RESEARCH.map((x) => [x.id, x]));
+const researchSum = (s: GameState, key: 'squadCap' | 'bunk') => s.run.research.reduce((a, id) => a + (RESEARCH_BY_ID[id]?.[key] ?? 0), 0);
 
 // Abilities are learned in the skill trees and must be equipped in the loadout to be used.
 export const hasAbility = (s: GameState, id: AbilityId) => equipped(s, id);
@@ -46,6 +65,13 @@ export function curioBonus(s: GameState, effect: CurioEffect): number {
     if (c?.effect === effect) b += c.value * Math.min(n, CURIO_MAX);
   }
   return b;
+}
+
+/** Combined strength of every floor of one type. */
+export function floorTotal(s: GameState, type: FloorId): number {
+  let n = 0;
+  s.run.floors.forEach((f, i) => { if (f?.type === type) n += floorPower(s, i); });
+  return n;
 }
 
 /** Strength of each floor slot (level × biome × adjacency). */
@@ -96,10 +122,11 @@ export function derive(s: GameState): Derived {
   const globalMult = (1 + s.meta.achievements.length * ACH_BONUS) * (1 + curioBonus(s, 'all'));
   const goblin = r.race === 'goblin';
   const unionBreak = goblin && r.time % 120 >= 100;
+  const alone = leftAlone();
   const jobMult = (unionBreak ? 0 : 1) * (goblin ? 1.4 : 1) * globalMult * pct(b.jobs)
-    * (b.idleJobs && leftAlone() ? 1 + b.idleJobs : 1);
+    * (b.idleJobs && alone ? 1 + b.idleJobs : 1) * (r.god === 'moss' && alone ? 1.25 : 1);
 
-  const foodMult = jobMult * (1 + floors.farm * 0.5) * (1 + 0.25 * div(s, 'harvest')) * pct(b.food)
+  const foodMult = jobMult * (1 + floors.farm * 0.5) * divMult(s, 'harvest') * Math.pow(3, boonOf(s, 'food')) * pct(b.food) * researchMult(s, 'food')
     * (r.research.includes('compost') ? 1.5 : 1) * (r.god === 'snorg' ? 1.5 : 1) * (1 + relicBonus(s, 'food'));
   const farmed = r.jobs.farmer * 0.5 * foodMult;
   const eaten = r.pop * FOOD_PER_COLONIST * Math.max(0.2, 1 - b.eat);
@@ -107,14 +134,15 @@ export function derive(s: GameState): Derived {
   const hungry = r.res.food <= 0.01 && farmed < eaten;
   const hunger = hungry ? 0.5 : 1;
 
-  const mineMult = jobMult * hunger * (1 + 0.25 * div(s, 'picks')) * (r.research.includes('sharpPicks') ? 1.5 : 1)
-    * (r.research.includes('deepPicks') ? 2 : 1) * (r.race === 'dwarf' ? 1.25 : 1) * pct(b.dig);
-  const knowMult = jobMult * hunger * (1 + floors.library * 0.5) * (1 + 0.25 * div(s, 'wisdom')) * pct(b.know)
-    * (r.research.includes('indexCards') ? 1.5 : 1) * (1 + relicBonus(s, 'know'));
+  const mineMult = jobMult * hunger * divMult(s, 'picks') * Math.pow(2, boonOf(s, 'dig')) * (r.research.includes('sharpPicks') ? 1.5 : 1)
+    * (r.research.includes('deepPicks') ? 2 : 1) * (r.race === 'dwarf' ? 1.25 : r.race === 'kobold' ? 0.9 : 1)
+    * (r.god === 'krog' ? 0.85 : 1) * pct(b.dig);
+  const knowMult = jobMult * hunger * (1 + floors.library * 0.5) * divMult(s, 'wisdom') * pct(b.know) * researchMult(s, 'know')
+    * (r.research.includes('indexCards') ? 1.5 : 1) * (1 + relicBonus(s, 'know')) * (r.race === 'gnome' ? 1.6 : 1);
 
   const miners = r.jobs.miner;
   const jobRate: Record<JobId, number> = {
-    miner: 0.4 * mineMult * (1 + relicBonus(s, 'dig')),
+    miner: 0.4 * mineMult * (1 + relicBonus(s, 'dig')) * researchMult(s, 'dig'),
     farmer: 0.5 * foodMult,
     scholar: 0.25 * knowMult,
   };
@@ -124,16 +152,17 @@ export function derive(s: GameState): Derived {
 
   const rates = Object.fromEntries(RES_IDS.map((k) => [k, 0])) as Record<ResId, number>;
   rates.food = farmed - eaten;
-  rates.stone = miners * 0.6 * mineMult * (r.god === 'pebble' ? 2 : 1) * pct(b.stone);
-  if (r.depth >= BIOMES[1].from) rates.copper = miners * 0.12 * mineMult * pct(b.ore);
-  if (r.depth >= BIOMES[3].from) rates.iron = miners * 0.05 * mineMult * pct(b.ore);
+  const veins = divMult(s, 'veins');
+  rates.stone = miners * 0.6 * mineMult * veins * researchMult(s, 'stone') * (r.god === 'pebble' ? 2 : 1) * pct(b.stone);
+  const oreMult = mineMult * veins * pct(b.ore) * researchMult(s, 'ore') * (1 + floors.smeltery * 0.4);
+  for (const o of ORES) if (r.depth >= BIOMES[o.biome].from) rates[o.res] = miners * o.rate * oreMult;
   rates.knowledge = r.floors.some((f) => f?.type === 'library') ? r.jobs.scholar * jobRate.scholar : 0;
 
-  const cap = (100 + floors.storage * 200) * pct(b.storage);
+  const cap = (100 + floors.storage * 200) * pct(b.storage) * (r.race === 'kobold' ? 2 : 1);
   const caps = Object.fromEntries(RES_IDS.map((k) => [k, Infinity])) as Record<ResId, number>;
-  caps.food = cap; caps.stone = cap; caps.copper = cap; caps.iron = cap;
+  for (const k of RES_IDS) if (RESOURCES[k].capped) caps[k] = cap;
 
-  const bunk = r.research.includes('bunkBeds') ? 6 : 4;
+  const bunk = (r.research.includes('bunkBeds') ? 6 : 4) + researchSum(s, 'bunk');
   const maxPop = Math.floor(6 + floors.bunk * bunk + 3 * div(s, 'fertile') + b.pop);
   const jobsTotal = r.jobs.miner + r.jobs.farmer + r.jobs.scholar;
   // Colonists not in a job. Until the squad marches out, its planned members are reserved and not idle.
@@ -142,15 +171,16 @@ export function derive(s: GameState): Derived {
   const reserved = r.combatUnlocked && !r.combat.alive ? Math.min(free, planTotal) : 0;
   const idle = free - reserved;
   // New dwarves per second: slow for a tiny colony, faster as it grows (Trimps-style breeding).
-  const growth = (GROWTH_BASE + r.pop * GROWTH_PER_POP) * (1 + floors.tavern * 0.5) * (1 + 0.2 * div(s, 'fertile'))
+  const growth = (GROWTH_BASE + r.pop * GROWTH_PER_POP) * (1 + floors.tavern * 0.5) * divMult(s, 'fertile')
     * (r.god === 'snorg' ? 1.25 : 1) * (1 + relicBonus(s, 'growth')) * globalMult * pct(b.growth);
 
   return {
     floors, globalMult, maxPop, idle, free, reserved, caps, rates, jobRate, digPower, tapPower, growth,
-    squadCap: 3 + Math.floor(floors.barracks * 3) + b.squadCap,
-    regroupTime: 5 / (1 + floors.barracks * 0.5) / pct(b.regroup),
+    squadCap: 3 + Math.floor(floors.barracks * 3) + b.squadCap + researchSum(s, 'squadCap') + div(s, 'tactics'),
+    regroupTime: 5 / (1 + floors.barracks * 0.5) / pct(b.regroup) / researchMult(s, 'regroup'),
     gearCostMult: Math.max(0.2, 1 - b.gearCost) / (1 + floors.forge * 0.2),
-    favorMult: (1 + floors.shrine * 0.15) * Math.pow(1.25, r.guardians.length) * (1 + b.favor),
+    favorMult: (1 + floors.shrine * 0.15) * Math.pow(1.25, r.guardians.length) * (1 + b.favor) * researchMult(s, 'favor')
+      * (1 + curioBonus(s, 'favor')) * (1 + 0.25 * boonOf(s, 'favor')),
     unionBreak,
     hungry,
     blocked: blockingGuardian(s),
@@ -176,8 +206,12 @@ export function squadStats(s: GameState, comp = s.run.combat.squad) {
   }
   const b = bonuses(s);
   const am = gearMult(s, 'a'), wm = gearMult(s, 'w');
-  const hpMult = am * (1 + 0.2 * div(s, 'stoneskin')) * (s.run.race === 'dwarf' ? 1.1 : 1) * (1 + relicBonus(s, 'hp')) * pct(b.hp);
-  const atkMult = wm * (1 + 0.2 * div(s, 'fervor')) * (1 + relicBonus(s, 'atk')) * (c.cry > 0 ? 2 : 1) * pct(b.dmg);
+  const arena = 1 + floorTotal(s, 'arena') * 0.15;
+  const race = s.run.race;
+  const hpMult = am * divMult(s, 'stoneskin') * (race === 'dwarf' ? 1.1 : race === 'gnome' ? 0.8 : 1) * (1 + relicBonus(s, 'hp'))
+    * pct(b.hp) * researchMult(s, 'hp') * arena;
+  const atkMult = wm * divMult(s, 'fervor') * (1 + relicBonus(s, 'atk')) * (c.cry > 0 ? 2 : 1) * pct(b.dmg)
+    * researchMult(s, 'dmg') * arena * (s.run.god === 'krog' ? 1.4 : 1) * Math.pow(2, boonOf(s, 'dmg'));
   const maxHp = hp * hpMult;
   const speed = pct(b.speed);
   const critChance = Math.min(1, CRIT_CHANCE + b.crit);
@@ -191,11 +225,14 @@ export function squadStats(s: GameState, comp = s.run.combat.squad) {
     critChance,
     critMult,
     killHeal: KILL_HEAL + b.killHeal,
-    bossMult: 1 + b.bossDmg, // extra damage against zone bosses and guardians
+    bossMult: (1 + b.bossDmg) * divMult(s, 'giantbane'), // extra damage against zone bosses and guardians
     heal: heal * am + maxHp * b.regen, // HP per second, delivered in pulses (regen only comes from skills)
     block: n ? Math.min(0.75, block / n + b.block) : 0,
   };
 }
+
+/** Enemy scaling: `early` per zone up to LATE_ZONE, then the gentler `late` rate. */
+const zoneGrowth = (z: number, early: number, late: number) => Math.pow(early, Math.min(z, LATE_ZONE)) * Math.pow(late, Math.max(0, z - LATE_ZONE));
 
 function hash(a: number, b: number) {
   let h = (a * 374761393 + b * 668265263) | 0;
@@ -203,9 +240,12 @@ function hash(a: number, b: number) {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
+const BOSSES = Object.keys(ENEMIES).filter((k) => ENEMIES[k].boss).sort((a, b) => ENEMIES[a].from - ENEMIES[b].from);
+const REGULARS = Object.keys(ENEMIES).filter((k) => !ENEMIES[k].boss).sort((a, b) => ENEMIES[a].from - ENEMIES[b].from);
+/** The zone boss is the newest boss type unlocked; regular cells pick from the 6 newest monster types. */
 export function enemyFor(zone: number, cell: number): string {
-  if (cell === ZONE_CELLS - 1) return 'troll';
-  const pool = Object.keys(ENEMIES).filter((k) => ENEMIES[k].from <= zone);
+  if (cell === ZONE_CELLS - 1) return BOSSES.filter((k) => ENEMIES[k].from <= zone).pop() ?? 'troll';
+  const pool = REGULARS.filter((k) => ENEMIES[k].from <= zone).slice(-6);
   return pool[Math.floor(hash(zone, cell) * pool.length)];
 }
 
@@ -222,21 +262,24 @@ export function enemyStats(s: GameState) {
   return {
     name: boss ? `${e.name} (Zone Boss)` : e.name,
     sprite: e.sprite, pal: e.pal, scale: boss ? 5 : 3,
-    hp: ENEMY_HP * Math.pow(ENEMY_HP_GROWTH, z) * grow * (boss ? 6 : 1),
-    atk: ENEMY_ATK * Math.pow(ENEMY_ATK_GROWTH, z) * grow * (boss ? 2 : 1), // damage per second; each hit = atk × speed
+    hp: ENEMY_HP * zoneGrowth(z, ENEMY_HP_GROWTH, ENEMY_HP_LATE) * grow * (boss ? 6 : 1),
+    atk: ENEMY_ATK * zoneGrowth(z, ENEMY_ATK_GROWTH, ENEMY_ATK_LATE) * grow * (boss ? 2 : 1), // damage per second; each hit = atk × speed
     speed: boss ? 1.4 : 1,
     boss, guardian: false,
   };
 }
 
 export function goldMult(s: GameState) {
-  return (1 + 0.25 * div(s, 'greed')) * (s.run.research.includes('haggling') ? 1.5 : 1) * (1 + relicBonus(s, 'gold')) * pct(bonuses(s).gold);
+  return divMult(s, 'greed') * (s.run.research.includes('haggling') ? 1.5 : 1) * (1 + relicBonus(s, 'gold')) * pct(bonuses(s).gold)
+    * researchMult(s, 'gold') * (1 + floorTotal(s, 'treasury') * 0.25) * (s.run.race === 'kobold' ? 1.3 : 1) * Math.pow(2, boonOf(s, 'gold'));
 }
 
 // ---------------------------------------------------------------- prestige
 export function pendingFavor(s: GameState, d: Derived): number {
   const r = s.run;
-  const raw = Math.pow(r.depth, 1.4) / 8 + Math.pow(r.maxZone, 1.7) / 3;
+  // Polynomial early on, then exponential past depth 35 / zone 20 so going deeper always pays more.
+  const raw = (Math.pow(r.depth, 1.4) / 8 + Math.pow(r.maxZone, 1.7) / 3)
+    * Math.pow(FAVOR_DEEP, Math.max(0, r.depth - 35)) * Math.pow(FAVOR_ZONE, Math.max(0, r.maxZone - 20));
   return Math.floor(raw * d.favorMult);
 }
 /** You can only prestige once this run's first guardian (The Very Large Worm) has been defeated. */

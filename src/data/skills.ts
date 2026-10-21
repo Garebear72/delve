@@ -239,9 +239,10 @@ export const PERK_RESPEC_BASE = 25; // gold; triples with each respec in a run
 
 // ---------------------------------------------------------------- XP sources
 export const XP = {
-  killBase: 0.4, // × zone^1.1 per kill (zone bosses ×5)
+  killBase: 0.2, // × zone^1.1 per kill (zone bosses ×5)
   guardianBase: 100, // × (guardian number)² per guardian
-  levelBase: 15, // × 1.1^depth per level dug
+  levelBase: 10, // × levelGrowth^depth per level dug
+  levelGrowth: 1.03,
   birth: 1, // per new colonist
   build: 6, // per floor built or upgraded
   tap: 0.05, // per tap, plus up to +0.05 more at a 50+ combo (an hour of nonstop tapping ≈ level 14)

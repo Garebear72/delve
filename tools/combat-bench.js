@@ -1,8 +1,8 @@
 // Combat balance bench. Paste into the browser console on the dev server (npm run dev)
 // or run via the Browser pane: it simulates fights headlessly and prints how far squads get.
-const { newGame } = await import('/src/game/state.ts');
-const { advance, startGuardian } = await import('/src/game/sim.ts');
-const { setQuiet } = await import('/src/game/events.ts');
+const { newGame } = await import('../src/game/state.ts');
+const { advance, startGuardian } = await import('../src/game/sim.ts');
+const { setQuiet } = await import('../src/game/events.ts');
 setQuiet(true);
 
 function setup({ squad, wLvl = 0, aLvl = 0, wTier = 0, aTier = 0, research = [] }) {

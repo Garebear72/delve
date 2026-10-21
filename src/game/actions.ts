@@ -107,7 +107,8 @@ export function assignJob(s: GameState, job: JobId, n: number) {
 }
 
 /** Research cost after skill discounts. */
-export const researchCost = (s: GameState, r: { cost: Cost }) => scale(r.cost, Math.max(0.3, 1 - bonuses(s).researchCost));
+export const researchCost = (s: GameState, r: { cost: Cost }) =>
+  scale(r.cost, Math.max(0.3, 1 - bonuses(s).researchCost) * (s.run.race === 'gnome' ? 0.7 : 1));
 
 export function buyResearch(s: GameState, id: string) {
   const r = RESEARCH.find((x) => x.id === id);
@@ -195,10 +196,6 @@ export function prestige(s: GameState, keep: string[], race: RaceId, god: GodId,
   s.meta.totalFavor += gain + bonus;
   s.meta.prestiges++;
   s.meta.reliquary = kept;
-  if (s.meta.prestiges === 1) {
-    if (!s.meta.races.includes('goblin')) s.meta.races.push('goblin');
-    if (!s.meta.gods.includes('snorg')) s.meta.gods.push('snorg');
-  }
   if (respec) respecTrees(s);
   s.run = newRun(s.meta, s.meta.races.includes(race) ? race : 'dwarf', s.meta.gods.includes(god) ? god : 'forge');
   toast(`A new expedition begins! +${gain + bonus} Divine Favor.`, 'epic');

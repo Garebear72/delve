@@ -57,6 +57,19 @@ export interface RunState {
   perkPoints: number; // run perk points earned this run
   perkRespecs: number;
   dice: DiceState;
+  cart: CartState;
+  boons: Record<string, number>; // Wheel of the Gods blessings this run (stacks)
+  wheelSpins: number; // spins taken this run (the first WHEEL.freeSpins are free)
+  plinkoPeg: [number, number]; // Plinko's golden peg [row, column]
+}
+
+export interface CartState {
+  pot: number; // gold riding in the cart (0 = not riding)
+  step: number; // forks passed this ride
+  path: ('sturdy' | 'rickety')[];
+  luck: number; // Curio luck built up this ride
+  result: '' | 'riding' | 'crash' | 'cashout' | 'end';
+  rides: number;
 }
 
 export interface DiceState {
@@ -112,8 +125,8 @@ export function newRun(meta: MetaState, race: RaceId = 'dwarf', god: GodId = 'fo
   const hs = meta.divine.headstart ?? 0;
   return {
     race, god,
-    res: { food: 20 + hs * 50, stone: hs * 100, copper: 0, iron: 0, gold: 0, knowledge: 0 },
-    pop: 2,
+    res: { food: 20 + hs * 50, stone: hs * 100, copper: 0, iron: 0, crystal: 0, mithril: 0, gold: 0, knowledge: 0 },
+    pop: 2 + 2 * (meta.divine.ancestors ?? 0),
     starve: 0,
     jobs: { miner: 0, farmer: 0, scholar: 0 },
     depth: 0, dig: 0, floors: [],
@@ -132,6 +145,10 @@ export function newRun(meta: MetaState, race: RaceId = 'dwarf', god: GodId = 'fo
     perkPoints: 0,
     perkRespecs: 0,
     dice: { pot: 0, streak: 0, you: [], gob: [], result: '', rolls: 0 },
+    cart: { pot: 0, step: 0, path: [], luck: 1, result: '', rides: 0 },
+    boons: {},
+    wheelSpins: 0,
+    plinkoPeg: [4, 4],
   };
 }
 

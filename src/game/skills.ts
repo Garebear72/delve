@@ -4,6 +4,7 @@ import {
   MAX_LEVEL, NODES, NODE_BY_ID, PERKS, PERK_RESPEC_BASE, SKILLS, SKILL_IDS, SkillId, Stat, STATS, TIER_REQ, TREE_MAX, XP,
 } from '../data/skills';
 import { toast } from './events';
+import { CURIOS, CURIO_MAX } from '../data/minigames';
 import type { GameState } from './state';
 
 // ---------------------------------------------------------------- XP curve
@@ -37,7 +38,7 @@ export const isOffline = () => offline;
 export function addXp(s: GameState, id: SkillId, amount: number) {
   if (!(amount > 0)) return;
   const b = bonuses(s);
-  let mult = 1 + b.xp;
+  let mult = (1 + b.xp) * (1 + curioXp(s)) * (1 + 0.5 * (s.run.boons.xp ?? 0));
   if (offline) mult *= (id === 'handsOff' ? 1 : XP.offlineMult) * (1 + b.offlineXp);
   const before = skillLevel(s, id);
   s.meta.skills[id] = skillXp(s, id) + amount * mult;
@@ -46,6 +47,13 @@ export function addXp(s: GameState, id: SkillId, amount: number) {
     const pts = pointsAtLevel(id, after) - pointsAtLevel(id, before);
     toast(`${SKILLS[id].icon} ${SKILLS[id].name} level ${after}!${pts ? ` +${pts} skill point${pts > 1 ? 's' : ''}` : ''}`, pts ? 'epic' : 'good');
   }
+}
+
+/** XP bonus from Curios (read straight from the data to avoid importing calc.ts here). */
+function curioXp(s: GameState) {
+  let b = 0;
+  for (const [id, n] of Object.entries(s.meta.curios)) if (CURIOS[id]?.effect === 'xp') b += CURIOS[id].value * Math.min(n, CURIO_MAX);
+  return b;
 }
 
 // ---------------------------------------------------------------- bonuses

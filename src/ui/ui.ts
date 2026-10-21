@@ -19,7 +19,8 @@ import type { SkillId } from '../data/skills';
 import { buyPerk, learn, reconcileTrees, respecPerks, respecTrees, skillLevel, toggleEquip, xpForLevel } from '../game/skills';
 import { SKILLS, SKILL_IDS } from '../data/skills';
 import { markInput } from '../game/input';
-import { diceCashOut, diceRoll, gamesTabOpen, gameUnlocked } from '../game/minigames';
+import { cartCashOut, cartFork, cartStart, diceCashOut, diceRoll, gamesTabOpen, gameUnlocked, plinkoDrop, wheelSpin } from '../game/minigames';
+import { ArcadeView } from '../render/arcade';
 import type { GameId } from '../data/minigames';
 import { arcadeView, gamesPanel } from './gamesPanel';
 import {
@@ -54,6 +55,16 @@ export function buildShell() {
   $('topbar').addEventListener('click', closeSheet);
   $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
   bindSheetGestures();
+  // Plinko: tap the board to drop a ball in that column.
+  $('arcade').addEventListener('pointerdown', (e) => {
+    const el = e.target as HTMLElement;
+    if (el.id !== 'arcadeCanvas' || ui.game !== 'plinko') return;
+    markInput();
+    const r = el.getBoundingClientRect();
+    if (!plinkoDrop(store.state, arcade.columnAt(e.clientX - r.left))) toast('Not enough stone.', 'bad');
+    else if (prefs.vibrate) navigator.vibrate?.(6);
+    refresh(); render();
+  });
 
   // Android back button/gesture closes a popup or panel instead of leaving the app.
   addEventListener('popstate', () => {
@@ -69,6 +80,9 @@ export function buildShell() {
 }
 
 export let mine: MineView;
+/** Animations for the full-screen mini-games (drawn from main.ts every frame). */
+export const arcade = new ArcadeView();
+export const arcadeCanvas = () => (ui.game ? (document.getElementById('arcadeCanvas') as HTMLCanvasElement | null) : null);
 export function createMine() {
   mine = new MineView(
     $('mine') as HTMLCanvasElement,
@@ -227,6 +241,11 @@ function act(name: string, arg: string) {
       else if (prefs.vibrate) navigator.vibrate?.(s.run.dice.result === 'lose' ? [30, 40, 30] : 15);
       break;
     case 'diceCash': diceCashOut(s); break;
+    case 'plinkoDrop': if (!plinkoDrop(s, Number(arg))) toast('Not enough stone.', 'bad'); break;
+    case 'cartStart': cartStart(s); break;
+    case 'cartFork': cartFork(s, arg as 'sturdy' | 'rickety'); break;
+    case 'cartCash': cartCashOut(s); break;
+    case 'wheelSpin': if (!arcade.spinning) wheelSpin(s); break;
     case 'openGame': openGame(arg); return;
     case 'closeGame': openGame(null); return;
     case 'gear': A.buyGearLevel(s, arg as 'w' | 'a'); break;
@@ -393,7 +412,7 @@ export function render() {
     case 'build': html = buildPanel(s, d, ui); break;
     case 'floor': html = floorPanel(s, d, ui); break;
   }
-  if (ui.game) morphdom($('arcade'), `<div id="arcade">${arcadeView(s, ui.game as GameId)}</div>`);
+  if (ui.game) morphdom($('arcade'), `<div id="arcade">${arcadeView(s, ui.game as GameId, arcade)}</div>`, { onBeforeElUpdated: (from) => from.tagName !== 'CANVAS' });
   morphdom(panel, `<div id="panel">${html}</div>`, {
     onBeforeElUpdated: (from) => !(from.tagName === 'CANVAS' || (from as HTMLElement).dataset?.keep === '1' && from === document.activeElement),
   });
