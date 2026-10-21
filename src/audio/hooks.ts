@@ -1,0 +1,25 @@
+// Connects game events to sound effects. Combat sounds only play while the Battle tab is open.
+import { BIOMES } from '../data/defs';
+import { on } from '../game/events';
+import { sfx, unlockAudio } from './sfx';
+
+export function bindSounds(battleVisible: () => boolean) {
+  // Audio can only start after a user gesture; every tap also resumes it if the phone suspended it.
+  addEventListener('pointerdown', unlockAudio, { capture: true });
+
+  on('tap', (e: { combo: number; crit: boolean }) => sfx(e.crit ? 'crit' : 'tap', e.combo));
+  on('tapBlocked', () => sfx('blocked'));
+  on('dug', (depth: number) => sfx(BIOMES.some((b) => b.from === depth) ? 'biome' : 'dug'));
+  on('built', () => sfx('build'));
+  on('hit', (h: { crit: boolean }) => { if (battleVisible()) sfx(h.crit ? 'hitCrit' : 'hit'); });
+  on('hurt', () => { if (battleVisible()) sfx('hurt'); });
+  on('kill', () => { if (battleVisible()) sfx('kill'); });
+  on('wipe', () => { if (battleVisible()) sfx('wipe'); });
+  on('loot', () => sfx('loot'));
+  on('achievement', () => sfx('epic'));
+  on('toast', (t: { kind: string }) => { if (t.kind === 'epic') sfx('epic'); else if (t.kind === 'bad') sfx('bad'); });
+  on('curio', () => sfx('curio'));
+  on('dice', (r: string) => { sfx('dice'); setTimeout(() => sfx(r === 'lose' ? 'lose' : 'win'), 260); });
+  on('cart', (w: string) => sfx(w === 'crash' ? 'crash' : 'cart'));
+  on('dungeon', (w: string) => sfx(w === 'won' ? 'win' : w === 'fled' ? 'lose' : 'door'));
+}

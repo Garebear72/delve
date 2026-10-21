@@ -290,3 +290,4 @@ input[type=file] { margin: 8px 0; color: var(--sub); font: inherit; font-size: 1
 .door .dicon { font-size: 34px; }
 .door .sub { font-size: 11px; }
 .dlog { display: flex; flex-direction: column; gap: 3px; background: #0004; border-radius: 6px; padding: 8px; font-size: 13px; }
+#hint.goal { border-color: var(--line); color: var(--sub); background: #000c; }

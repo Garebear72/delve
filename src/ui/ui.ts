@@ -2,7 +2,8 @@
 import morphdom from 'morphdom';
 import { AbilityId, BIOMES, ClassId, JobId, FloorId, GUARDIANS, RESEARCH, RESOURCES, RES_IDS, RaceId, GodId } from '../data/defs';
 import * as A from '../game/actions';
-import { canPrestige } from '../game/calc';
+import { canPrestige, Derived } from '../game/calc';
+import type { GameState } from '../game/state';
 import { on } from '../game/events';
 import { deleteSlot, exportString, importString, loadBackup, renameSlot, saveSlot } from '../game/save';
 import { applyOffline, OfflineReport, openSlot, replaceState, saveNow } from '../game/session';
@@ -21,6 +22,7 @@ import { SKILLS, SKILL_IDS } from '../data/skills';
 import { markInput } from '../game/input';
 import { cartCashOut, cartFork, cartStart, diceCashOut, diceRoll, gamesTabOpen, gameUnlocked, plinkoDrop, wheelSpin } from '../game/minigames';
 import { ArcadeView } from '../render/arcade';
+import { setVolume, sfx, unlockAudio } from '../audio/sfx';
 import { chooseDoor, enterCavern, leaveDungeon } from '../game/dungeons';
 import type { GameId } from '../data/minigames';
 import { arcadeView, gamesPanel } from './gamesPanel';
@@ -207,6 +209,8 @@ export function showOffline(rep: OfflineReport) {
     rep.zones ? `<div class="kv"><span>Zones cleared</span><span class="grow"></span><b class="good">+${rep.zones}</b></div>` : '',
     rep.kills ? `<div class="kv"><span>Monsters defeated</span><span class="grow"></span><b>${fmt(rep.kills)}</b></div>` : '',
     rep.pop >= 1 ? `<div class="kv"><span>New colonists</span><span class="grow"></span><b class="good">+${Math.floor(rep.pop)}</b></div>` : '',
+    rep.guardians ? `<div class="kv"><span>Guardians defeated</span><span class="grow"></span><b class="good">+${rep.guardians}</b></div>` : '',
+    rep.caverns ? `<div class="kv"><span>🕳️ Hidden Caverns found</span><span class="grow"></span><b class="good">+${rep.caverns}</b></div>` : '',
   ].join('');
   const skills = rep.skills.map((x) => `<div class="kv"><span>${SKILLS[x.id].icon} ${SKILLS[x.id].name}</span><span class="grow"></span>
     <span class="sub">+${fmt(x.xp)} XP</span>${x.to > x.from ? ` <b class="good">Lv ${x.from} → ${x.to}</b>` : ''}</div>`).join('');
@@ -219,7 +223,7 @@ export function showOffline(rep: OfflineReport) {
 function onClick(e: MouseEvent) {
   markInput();
   const el = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
-  if (el) { if ((el as HTMLButtonElement).disabled) return; act(el.dataset.act!, el.dataset.arg ?? ''); return; }
+  if (el) { if ((el as HTMLButtonElement).disabled) return; sfx('click'); act(el.dataset.act!, el.dataset.arg ?? ''); return; }
   const tab = (e.target as HTMLElement).closest('[data-tab]') as HTMLElement | null;
   if (tab) openTab(tab.dataset.tab === 'mine' ? null : tab.dataset.tab!);
 }
@@ -345,6 +349,8 @@ function act(name: string, arg: string) {
       return;
     }
     case 'vibrate': prefs.vibrate = !prefs.vibrate; savePrefs(); if (prefs.vibrate) navigator.vibrate?.(20); break;
+    case 'sound': prefs.sound = !prefs.sound; savePrefs(); unlockAudio(); sfx('good'); break;
+    case 'volume': prefs.volume = Number(arg); savePrefs(); setVolume(prefs.volume); sfx('coin'); break;
     // skills
     case 'skillTree': ui.skillTree = arg as SkillId | 'run'; ui.skillNode = ''; break;
     case 'skillNode': ui.skillNode = ui.skillNode === arg ? '' : arg; break;
@@ -492,6 +498,21 @@ function renderTabs() {
   morphdom($('tabs'), `<nav id="tabs">${html}</nav>`);
 }
 
+/** The next milestone to aim for, shown when nothing more urgent needs saying. */
+function nextGoal(s: GameState, d: Derived): string {
+  const r = s.run;
+  if (r.depth < 1) return 'Tap the mine to dig your first level.';
+  if (!r.floors.some(Boolean)) return 'Build a floor on an empty level (gold + button).';
+  if (r.depth < 5 && !r.combatUnlocked) return `Dig to depth 5 to unlock the Barracks (${r.depth}/5).`;
+  if (!r.combatUnlocked) return 'Build a Barracks to open the Battle tab.';
+  if (d.blocked >= 0) return `Defeat ${GUARDIANS[d.blocked].name} in the Battle tab.`;
+  if (!r.guardians.includes(0)) return `Dig to depth ${BIOMES[1].from}: something big waits there (${r.depth}/${BIOMES[1].from}).`;
+  if (s.meta.prestiges === 0) return 'Prestige from the Divine tab when you feel stuck. Push deeper first for more Favor!';
+  const next = BIOMES.find((b) => b.from > r.depth);
+  if (next) return `Dig to depth ${next.from} to reach the ${next.name} (${r.depth}/${next.from}).`;
+  return `Push the Expedition past zone ${r.maxZone}.`;
+}
+
 function renderHint() {
   const s = store.state, d = store.d, r = s.run;
   let hint = '';
@@ -505,9 +526,11 @@ function renderHint() {
   else if (d.rates.food < 0 && r.res.food < 20) hint = 'Mushrooms are running low! Add Farmers.';
   else if (r.depth >= 5 && !r.combatUnlocked) hint = 'Barracks unlocked! Build one on an empty level to open Battle.';
   else if (r.pop >= d.maxPop && !r.floors.some((f) => f?.type === 'bunk')) hint = 'Colony is full. Build a Bunkhouse for more room.';
+  const goal = hint ? '' : nextGoal(s, d);
   const el = $('hint');
-  el.textContent = hint;
-  el.classList.toggle('show', !!hint && !ui.tab);
+  el.textContent = hint || (goal ? `🎯 ${goal}` : '');
+  el.classList.toggle('goal', !hint && !!goal);
+  el.classList.toggle('show', !!(hint || goal) && !ui.tab);
 }
 
 export function frameUI() {

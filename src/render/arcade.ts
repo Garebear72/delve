@@ -5,8 +5,9 @@ import { on } from '../game/events';
 import type { PlinkoResult } from '../game/minigames';
 import type { GameState } from '../game/state';
 import { fmt } from '../ui/format';
+import { sfx } from '../audio/sfx';
 
-interface Ball { path: number[]; t: number; mult: number; gold: number; slot: number; done: boolean; golden: boolean }
+interface Ball { path: number[]; t: number; mult: number; gold: number; slot: number; done: boolean; golden: boolean; row?: number }
 interface Pop { x: number; y: number; text: string; color: string; life: number }
 interface Spark { x: number; y: number; vx: number; vy: number; life: number; color: string }
 
@@ -115,11 +116,13 @@ export class ArcadeView {
         x = this.colX(b.slot); y = this.rowY(PLINKO.rows) + Math.min(1, (b.t - PLINKO.rows * ROW_TIME) / 0.2) * 20;
         if (!b.done) {
           b.done = true;
+          sfx('land', b.mult);
           this.slotFlash[b.slot] = 0.5;
           this.pops.push({ x, y: sy - 8, text: `+${fmt(b.gold)}`, color: b.mult >= 1 ? '#8fe05a' : '#f3ead8', life: 1.2 });
           if (b.mult >= 5) this.burst(x, sy, ['#fbf236', '#ffffff', '#df7126'], 30);
         }
       } else {
+        if (i !== b.row) { b.row = i; sfx('peg'); }
         const x0 = this.colX(b.path[i]), x1 = this.colX(b.path[i + 1]);
         x = x0 + (x1 - x0) * f;
         y = this.rowY(i) + (this.rowY(i + 1) - this.rowY(i)) * f - Math.sin(f * Math.PI) * 8;
@@ -151,11 +154,14 @@ export class ArcadeView {
       this.spinT += dt;
       const p = Math.min(1, this.spinT / SPIN_TIME);
       const ease = 1 - Math.pow(1 - p, 4);
+      const before = Math.floor(this.angle / ((Math.PI * 2) / BOON_IDS.length));
       this.angle = this.spinFrom + (this.spinTo - this.spinFrom) * ease;
+      if (Math.floor(this.angle / ((Math.PI * 2) / BOON_IDS.length)) !== before) sfx('tick');
       if (p >= 1) {
         this.spinT = -1;
         const id = BOON_IDS[this.spinIdx];
         this.lastBoon = id;
+        sfx(id === 'nothing' ? 'lose' : 'win');
         this.burst(cx, cy - R, [BOONS[id].color, '#ffffff', '#fbf236'], 30);
       }
     }

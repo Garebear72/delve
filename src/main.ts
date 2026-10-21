@@ -9,6 +9,7 @@ import { advance } from './game/sim';
 import { checkForUpdate } from './game/update';
 import { refresh, store } from './game/store';
 import { CombatView } from './render/combat';
+import { bindSounds } from './audio/hooks';
 import { arcade, arcadeCanvas, battleCanvas, buildShell, createMine, frameUI, mine, pipCanvas, render, showOffline, ui } from './ui/ui';
 
 if (import.meta.env.DEV) (window as any).delve = store; // debugging handle in dev only
@@ -21,6 +22,7 @@ render();
 if (report) showOffline(report);
 
 const combat = new CombatView();
+bindSounds(() => ui.tab === 'battle');
 let last = performance.now();
 let uiTimer = 0;
 let saveTimer = 0;

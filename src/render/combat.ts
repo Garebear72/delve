@@ -11,6 +11,8 @@ interface Fx { x: number; y: number; vx: number; vy: number; life: number; max: 
 
 const BANDS = [
   ['#2a2233', '#3d3049'], ['#22302e', '#2f4440'], ['#2e2a24', '#4a3e30'], ['#2b2033', '#45305a'], ['#331d1a', '#5a2c22'],
+  ['#1f2a3a', '#2f4560'], ['#2e2740', '#4a3d6a'], ['#26303a', '#3b4752'], ['#14283a', '#1f3b4d'], ['#2c2826', '#4a4440'],
+  ['#3a1a10', '#5a2a1a'], ['#1b1622', '#3d2a4a'],
 ];
 const HIT_COLOR: Record<ClassId, string> = { recruit: '#f3ead8', fighter: '#cfe3ff', cleric: '#fff6a8', wizard: '#d6a8ff' };
 const LUNGE = 0.18;

@@ -17,6 +17,8 @@ export interface OfflineReport {
   zones: number;
   kills: number;
   pop: number;
+  caverns: number; // Hidden Caverns found while away
+  guardians: number; // guardians defeated while away
   skills: { id: SkillId; xp: number; from: number; to: number }[];
 }
 
@@ -33,7 +35,10 @@ export function offlineCap(s: GameState) {
 export function applyOffline(seconds: number): OfflineReport {
   const s = store.state;
   const sim = Math.min(seconds, offlineCap(s));
-  const before = { res: { ...s.run.res }, depth: s.run.depth, zone: s.run.maxZone, kills: s.meta.lifetime.kills ?? 0, pop: s.run.pop, skills: { ...s.meta.skills } };
+  const before = {
+    res: { ...s.run.res }, depth: s.run.depth, zone: s.run.maxZone, kills: s.meta.lifetime.kills ?? 0, pop: s.run.pop, skills: { ...s.meta.skills },
+    caverns: s.meta.lifetime.caverns ?? 0, guardians: s.run.guardians.length,
+  };
   setQuiet(true);
   try { catchUp(s, sim); } finally { setQuiet(false); }
   refresh();
@@ -46,6 +51,7 @@ export function applyOffline(seconds: number): OfflineReport {
     away: seconds, simulated: sim, res,
     depth: s.run.depth - before.depth, zones: s.run.maxZone - before.zone,
     kills: (s.meta.lifetime.kills ?? 0) - before.kills, pop: s.run.pop - before.pop,
+    caverns: (s.meta.lifetime.caverns ?? 0) - before.caverns, guardians: s.run.guardians.length - before.guardians,
     skills: SKILL_IDS.map((id) => ({
       id, xp: (s.meta.skills[id] ?? 0) - (before.skills[id] ?? 0),
       from: levelOf(before.skills[id] ?? 0), to: levelOf(s.meta.skills[id] ?? 0),

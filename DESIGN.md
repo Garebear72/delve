@@ -56,18 +56,21 @@ This is a living document. Everything here can change.
 - **Adjacency bonuses:** neighbors boost each other (Tavern next to Barracks = faster recruiting; Storage next to Smelter = faster smelting).
 - Layout resets each run → re-optimizing is part of the puzzle, and differs by race.
 
-### Biomes (draft, top to bottom)
-1. Topsoil — worms, roots, the tutorial.
-2. Stone — copper and tin.
-3. Damp Caverns — mushrooms, underground lakes (fishing!).
-4. Iron Seams — real smithing begins.
-5. Magma Rift — smelting chains, fire stuff.
-6. Ancient Ruins — relics, puzzle doors, lore.
-7. Crystal Veins — magic and enchanting.
-8. The Underdark — weird creatures, weird trades.
-9. The Clockwork Deep — automation unlocks.
-10. The Lasagna Layer — nobody knows why it's here.
-11. …the Bottom? (Is there one?)
+### Biomes (built, top to bottom; each boundary is sealed by a guardian)
+| Depth | Biome | Guardian at its entrance | New ore |
+|---|---|---|---|
+| 0 | Topsoil | — | — |
+| 8 | Stone Layer | The Very Large Worm | copper |
+| 20 | Damp Caverns | Sir Stonejaw, Golem Knight | — |
+| 35 | Iron Seams | Mother Mycelia | iron |
+| 55 | Magma Rift | Grand Rustmaw | — |
+| 80 | Crystal Grotto | The Glimmerwyrm | crystal |
+| 110 | Mithril Deeps | Grumbleforge, the Duergar King | mithril |
+| 145 | The Sunless Sea | Admiral Squidbeard | — |
+| 185 | Bone Catacombs | The Lich Who Lost Their Keys | — |
+| 230 | The Hollow Core | The Sleepy Tarrasque | — |
+
+Ideas for later biomes: Ancient Ruins (puzzle doors, lore), The Underdark, The Clockwork Deep (automation), The Lasagna Layer (nobody knows why it's here), …the Bottom?
 
 ### Workers
 - **Faceless classes**, assigned Trimps-style (move numbers between jobs).
@@ -106,6 +109,22 @@ This is a living document. Everything here can change.
 
 - Later runs should catch up to the previous best much faster, then push further until the next wall.
 - Target: **first prestige within ~2 hours** for a new player.
+- **Favor** = (depth^1.4/8 + zone^1.7/3), ×1.008 per level past depth 35 and ×1.01 per zone past 20, × Shrines, guardians beaten (×1.25 each), skills, research, Curios and Wheel blessings.
+
+### Pacing targets (measured with the autoplay bot: `npx tsx tools/pacing.mjs 96`)
+The bot plays efficiently around the clock (taps a quarter of the time); a real player is roughly 2–3× slower.
+
+| Milestone | Bot (game time) | Real player (rough) |
+|---|---|---|
+| The Very Large Worm | ~27 min | ~45–60 min |
+| Magma Rift (55) | ~3–4 h | ~8–10 h |
+| Crystal Grotto (80) | ~8–11 h | ~1 day |
+| Mithril Deeps (110) | ~15–19 h | ~2 days |
+| Sunless Sea (145) | ~30 h | ~3–4 days |
+| Bone Catacombs (185) | ~90 h | ~1–2 weeks |
+| Hollow Core (230) | beyond 96 h | weeks |
+
+After the Sunless Sea progress slows into a long climb (Favor per run grows slowly); a tier-2 prestige layer is the planned answer. Comparable games: first prestige ~1–2 h (Antimatter Dimensions, Realm Grinder), Trimps' first Portal several hours in.
 
 ### The Reliquary
 - A limited set of slots for rare artifacts you choose to **keep across runs**.
@@ -158,7 +177,7 @@ Goofy: **Snorg**, God of Snacks · **Pebble**, God of Rocks (only cares about ro
 - Auto-casting is a Hands-Off tree unlock.
 
 ### Divine Tree
-- Unchanged: permanent upgrades bought with Divine Favor.
+- Permanent upgrades bought with Divine Favor. The main multipliers **compound** (×1.15 per level), so Favor keeps paying off deep into the game; utility nodes (Head Start, Ancestral Halls, Divine Tactics, Long Memory, Reliquary, Fortune's Favor) are flat.
 
 ---
 
@@ -170,15 +189,28 @@ Useful from early game to endgame. Rewards include resources, bonus money/ore, a
 
 **Curios (built):** permanent collectibles only mini-games give, each with a small permanent bonus; up to 5 copies count (each copy stacks). Every play rolls for one: Common ~1/30, Rare ~1/300, Legendary ~1/3000, times luck. Each game has its own pool. Shown in the Games tab and the Book.
 
+**Plinko Ore Drop (built, prestige 2):** each drop costs 10% of your stone storage and pays gold × the landing slot (×5/×2/×1/×0.5/×0.3). Balls step one column per row; off either side = gutter. Middle drops are safest, edges chase ×5 (3× Curio luck). A golden peg moves after every drop: pass through it for 3× Curio luck.
+
+**Mine-Cart Gamble (built, prestige 3):** a ride costs 2 dice bets of gold; 4 forks, each sturdy (80% safe, ×1.2) or rickety (50%, ×1.8, more Curio luck); bail out any time after the first fork. One Curio roll per fork survived when the ride ends.
+
+**Wheel of the Gods (built, prestige 4, needs a Shrine):** one free spin per run, extra spins cost Favor (2% of all Favor ever earned, doubling per spin). Blessings last the run: digging ×2, mushrooms ×3, gold ×2, squad damage ×2, +25% Favor, +50% XP, three ×5-luck Curio rolls, or nothing.
+
 **Goblin Dice (built, prestige 1):** bet gold (50 × 1.25^(zones cleared this run − 1)); 2d6 vs the goblin's 2d6, goblin wins ties; win ×1.8, double sixes ×3; then cash out or double-or-nothing. Curio luck ×1.5 per win in the current streak. Bets return ~84% on average: the gold is a cost, Curios are the prize.
 
-- **Plinko Ore Drop** — physics, fun to watch.
-- **Mine-Cart Gamble**
-- **Slots & Dice** (in-game currency only)
+Ideas for later activities:
 - **Lockpicking / Puzzle Doors** (Ancient Ruins)
 - **Fishing** (underground lakes)
 - **Merchants & Trading**
 - More later.
+
+---
+
+## 8b. Dungeons (built)
+
+- Unlock once Sir Stonejaw has ever been beaten. Digging past depth 10 has a 6% chance per level to break into a **Hidden Cavern** (hold up to 3). Caverns appear as cave mouths in the mine (tap to explore) and in the Battle tab.
+- Explore full screen: 6 rooms of 3 doors (⚔️ monster, ☠️ elite, 💰 treasure, ⛲ fountain, ❓ mystery), then the cavern's boss (named by depth). Party = your squad plan at full strength (costs no colonists). Party HP carries between rooms; retreat any time with your loot.
+- Fights cost a random share of the party's max HP (monster 14%, elite 30%, boss 60%, ×0.6–1.4, Fighters' block softens it), so the challenge is choosing doors, not raw power. Random play clears ~57% of caverns (`npx tsx tools/dungeon-test.mjs`).
+- Rewards: gold scaled to your best zone, 15% boss relic chance, and **Heirlooms** — 9 permanent Curio-like collectibles found only in caverns (treasure, elites, mystery and bosses roll for them).
 
 ---
 
@@ -232,9 +264,17 @@ Useful from early game to endgame. Rewards include resources, bonus money/ore, a
 - 5 save slots, rolling backup, autosave, export/import (code or file), offline progress.
 - Installable PWA with offline support; dev panel (speed ×10–×1000, cheats).
 
+**v0.2** — Skills (5 skills, RuneScape curve, ~118-node trees), run perks, ability loadout, Goblin Dice + Curios, Games tab, full-screen mini-game view, zone-boss retry.
+
+**v0.3**
+- 5 new biomes (to depth 230+) with 5 new guardians; crystal and mithril ores and gear tiers; 10 new monsters and 3 new zone bosses; 13 items; 8 relics; 20 research projects; Treasury, Training Grounds and Smeltery floors; Tinkering Gnomes, Kobold Hoarders, Krog and Grandmother Moss; 5 new Divine upgrades; ~40 new achievements.
+- Long-game pacing pass with the autoplay bot (compounding Divine Tree, exponential deep Favor, gentler deep curves, slower deep XP).
+- Plinko Ore Drop, Mine-Cart Gamble, Wheel of the Gods (+24 Curios).
+- Dungeons (Hidden Caverns) + 9 Heirlooms.
+- Synthesised sound effects (Menu toggle + volume), a "next goal" guide in the hint line, more battle backgrounds, offline report shows caverns.
+
 **Next up (candidates)**
-- Mini-games: Plinko Ore Drop (prestige 2), Mine-Cart Gamble (3), Wheel of the Gods (4). Goblin Dice + Curios are built.
-- Run skill trees (Combat / Digging / Economy, Hands-On vs Hands-Off).
-- Hidden caverns → dungeons.
-- More biomes, races, gods, enemies, relics; tier-2 prestige (Ascension).
-- Balance pass on the first ~2 hours.
+- Tier-2 prestige (Ascension) to lift the late-game plateau after the Sunless Sea.
+- More cavern room types and events; Ancient Ruins biome with puzzle doors; special named workers.
+- Mini-game upgrades (Plinko auto-dropper, cart insurance) and in-game events in the arcade events strip.
+- Optional auto-retry for zone bosses (as a skill node or research).
