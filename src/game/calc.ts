@@ -1,7 +1,7 @@
 // Derived numbers: everything computed from state (rates, caps, squad stats).
 import { CURIOS, CURIO_MAX, CurioEffect } from '../data/minigames';
 import {
-  AbilityId, ACH_BONUS, ADJACENCY, BIOMES, CLASSES, CLASS_IDS, ENEMIES, FLOOR_IDS, FloorId, ENEMY_ATK, ENEMY_ATK_GROWTH, ENEMY_HP, ENEMY_HP_GROWTH, FOOD_PER_COLONIST, GEAR, GROWTH_BASE, GROWTH_PER_POP, GUARDIANS, JobId,
+  AbilityId, ACH_BONUS, ADJACENCY, ASCEND, BIOMES, CELESTIAL, CLASSES, CLASS_IDS, ENEMIES, FLOOR_IDS, FloorId, ENEMY_ATK, ENEMY_ATK_GROWTH, ENEMY_HP, ENEMY_HP_GROWTH, FOOD_PER_COLONIST, GEAR, GROWTH_BASE, GROWTH_PER_POP, GUARDIANS, JobId,
   CRIT_CHANCE, DEEP_FROM, DIVINE, ENEMY_ATK_LATE, ENEMY_HP_LATE, FAVOR_DEEP, FAVOR_ZONE, LATE_ZONE, LEVEL_HP, LEVEL_HP_DEEP, LEVEL_HP_GROWTH, RESOURCES, KILL_HEAL, ORES, RELICS, RelicEffect, RESEARCH, ResearchStat, RES_IDS, ResId, ZONE_CELLS,
 } from '../data/defs';
 import { leftAlone } from './input';
@@ -35,6 +35,12 @@ export const boonOf = (s: GameState, id: string) => s.run.boons[id] ?? 0;
 const DIVINE_MULT = Object.fromEntries(DIVINE.map((x) => [x.id, x.mult ?? 0]));
 /** Compounding Divine Tree multiplier: (1 + mult)^level. */
 export const divMult = (s: GameState, id: string) => Math.pow(1 + (DIVINE_MULT[id] ?? 0), div(s, id));
+
+/** Celestial Tree (Ascension) levels, compounding multipliers, and switchable upgrades. */
+export const cel = (s: GameState, id: string) => s.meta.celestial[id] ?? 0;
+const CEL_MULT = Object.fromEntries(CELESTIAL.map((x) => [x.id, x.mult ?? 0]));
+export const celMult = (s: GameState, id: string) => Math.pow(1 + (CEL_MULT[id] ?? 0), cel(s, id));
+export const celOn = (s: GameState, id: string) => cel(s, id) > 0 && !s.meta.celOff.includes(id);
 
 /** Product of every completed research's multiplier for this stat. */
 export function researchMult(s: GameState, stat: ResearchStat): number {
@@ -130,7 +136,7 @@ export function derive(s: GameState): Derived {
   const goblin = r.race === 'goblin';
   const unionBreak = goblin && r.time % 120 >= 100;
   const alone = leftAlone();
-  const jobMult = (unionBreak ? 0 : 1) * (goblin ? 1.4 : 1) * globalMult * pct(b.jobs)
+  const jobMult = (unionBreak ? 0 : 1) * (goblin ? 1.4 : 1) * globalMult * pct(b.jobs) * celMult(s, 'industry')
     * (b.idleJobs && alone ? 1 + b.idleJobs : 1) * (r.god === 'moss' && alone ? 1.25 : 1);
 
   const foodMult = jobMult * (1 + floors.farm * 0.5) * divMult(s, 'harvest') * Math.pow(3, boonOf(s, 'food')) * pct(b.food) * researchMult(s, 'food')
@@ -143,7 +149,7 @@ export function derive(s: GameState): Derived {
 
   const mineMult = jobMult * hunger * divMult(s, 'picks') * Math.pow(2, boonOf(s, 'dig')) * (r.research.includes('sharpPicks') ? 1.5 : 1)
     * (r.research.includes('deepPicks') ? 2 : 1) * (r.race === 'dwarf' ? 1.25 : r.race === 'kobold' ? 0.9 : 1)
-    * (r.god === 'krog' ? 0.85 : 1) * pct(b.dig);
+    * (r.god === 'krog' ? 0.85 : 1) * (r.race === 'mole' ? 2 : 1) * pct(b.dig);
   const knowMult = jobMult * hunger * (1 + floors.library * 0.5) * divMult(s, 'wisdom') * pct(b.know) * researchMult(s, 'know')
     * (r.research.includes('indexCards') ? 1.5 : 1) * (1 + relicBonus(s, 'know')) * (r.race === 'gnome' ? 1.6 : 1);
 
@@ -161,7 +167,7 @@ export function derive(s: GameState): Derived {
   rates.food = farmed - eaten;
   const veins = divMult(s, 'veins');
   rates.stone = miners * 0.6 * mineMult * veins * researchMult(s, 'stone') * (r.god === 'pebble' ? 2 : 1) * pct(b.stone);
-  const oreMult = mineMult * veins * pct(b.ore) * researchMult(s, 'ore') * (1 + floors.smeltery * 0.4);
+  const oreMult = mineMult * veins * pct(b.ore) * researchMult(s, 'ore') * (1 + floors.smeltery * 0.4) * (r.race === 'mole' ? 1.5 : 1);
   for (const o of ORES) if (r.depth >= BIOMES[o.biome].from) rates[o.res] = miners * o.rate * oreMult;
   rates.knowledge = r.floors.some((f) => f?.type === 'library') ? r.jobs.scholar * jobRate.scholar : 0;
 
@@ -179,7 +185,7 @@ export function derive(s: GameState): Derived {
   const idle = free - reserved;
   // New dwarves per second: slow for a tiny colony, faster as it grows (Trimps-style breeding).
   const growth = (GROWTH_BASE + r.pop * GROWTH_PER_POP) * (1 + floors.tavern * 0.5) * divMult(s, 'fertile')
-    * (r.god === 'snorg' ? 1.25 : 1) * (1 + relicBonus(s, 'growth')) * globalMult * pct(b.growth);
+    * (r.god === 'snorg' ? 1.25 : 1) * (r.race === 'mole' ? 0.7 : 1) * (1 + relicBonus(s, 'growth')) * globalMult * pct(b.growth);
 
   return {
     floors, globalMult, maxPop, idle, free, reserved, caps, rates, jobRate, digPower, tapPower, growth,
@@ -187,7 +193,7 @@ export function derive(s: GameState): Derived {
     regroupTime: 5 / (1 + floors.barracks * 0.5) / pct(b.regroup) / researchMult(s, 'regroup'),
     gearCostMult: Math.max(0.2, 1 - b.gearCost) / (1 + floors.forge * 0.2),
     favorMult: (1 + floors.shrine * 0.15) * Math.pow(1.25, r.guardians.length) * (1 + b.favor) * researchMult(s, 'favor')
-      * (1 + curioBonus(s, 'favor')) * (1 + 0.25 * boonOf(s, 'favor')),
+      * (1 + curioBonus(s, 'favor')) * (1 + 0.25 * boonOf(s, 'favor')) * celMult(s, 'starfire') * (r.god === 'twinkle' ? 1.5 : 1),
     unionBreak,
     hungry,
     blocked: blockingGuardian(s),
@@ -216,9 +222,10 @@ export function squadStats(s: GameState, comp = s.run.combat.squad) {
   const arena = 1 + floorTotal(s, 'arena') * 0.15;
   const race = s.run.race;
   const hpMult = am * divMult(s, 'stoneskin') * (race === 'dwarf' ? 1.1 : race === 'gnome' ? 0.8 : 1) * (1 + relicBonus(s, 'hp'))
-    * pct(b.hp) * researchMult(s, 'hp') * arena;
+    * pct(b.hp) * researchMult(s, 'hp') * arena * celMult(s, 'might');
   const atkMult = wm * divMult(s, 'fervor') * (1 + relicBonus(s, 'atk')) * (c.cry > 0 ? 2 : 1) * pct(b.dmg)
-    * researchMult(s, 'dmg') * arena * (s.run.god === 'krog' ? 1.4 : 1) * Math.pow(2, boonOf(s, 'dmg'));
+    * researchMult(s, 'dmg') * arena * (s.run.god === 'krog' ? 1.4 : 1) * Math.pow(2, boonOf(s, 'dmg'))
+    * celMult(s, 'might') * (race === 'mole' ? 0.85 : 1);
   const maxHp = hp * hpMult;
   const speed = pct(b.speed);
   const critChance = Math.min(1, CRIT_CHANCE + b.crit);
@@ -261,14 +268,20 @@ export function enemyFor(zone: number, cell: number): string {
   return pool[Math.floor(hash(zone, cell) * pool.length)];
 }
 
+/** Guardian HP after Humbled Guardians. */
+export const guardianHp = (s: GameState, g: number) => GUARDIANS[g].hp * Math.pow(0.85, cel(s, 'humbled'));
+/** Expedition zones below this are pushovers (Forced March). */
+export const marchZone = (s: GameState) => cel(s, 'march') * ASCEND.marchZones;
+
 export function enemyStats(s: GameState) {
   const c = s.run.combat;
   if (c.mode === 'guardian') {
     const g = GUARDIANS[c.guardian];
-    return { name: g.name, sprite: g.sprite, pal: g.pal, scale: g.scale, hp: g.hp, atk: g.atk, speed: 1.8, boss: true, guardian: true };
+    return { name: g.name, sprite: g.sprite, pal: g.pal, scale: g.scale, hp: guardianHp(s, c.guardian), atk: g.atk, speed: 1.8, boss: true, guardian: true };
   }
   const boss = c.cell === ZONE_CELLS - 1;
-  const z = c.zone - 1;
+  // Forced March: zones below its threshold fight like zone 1.
+  const z = c.zone < marchZone(s) ? 0 : c.zone - 1;
   const grow = 1 + 0.04 * c.cell;
   const e = ENEMIES[c.enemyId] ?? ENEMIES.rat;
   return {
@@ -283,7 +296,8 @@ export function enemyStats(s: GameState) {
 
 export function goldMult(s: GameState) {
   return divMult(s, 'greed') * (s.run.research.includes('haggling') ? 1.5 : 1) * (1 + relicBonus(s, 'gold')) * pct(bonuses(s).gold)
-    * researchMult(s, 'gold') * (1 + floorTotal(s, 'treasury') * 0.25) * (s.run.race === 'kobold' ? 1.3 : 1) * Math.pow(2, boonOf(s, 'gold'));
+    * researchMult(s, 'gold') * (1 + floorTotal(s, 'treasury') * 0.25) * (s.run.race === 'kobold' ? 1.3 : 1) * Math.pow(2, boonOf(s, 'gold'))
+    * celMult(s, 'industry') * (s.run.god === 'twinkle' ? 0.6 : 1);
 }
 
 // ---------------------------------------------------------------- prestige
@@ -296,3 +310,13 @@ export function pendingFavor(s: GameState, d: Derived): number {
 }
 /** You can only prestige once this run's first guardian (The Very Large Worm) has been defeated. */
 export const canPrestige = (s: GameState, d: Derived) => s.run.guardians.includes(0) && pendingFavor(s, d) >= 1;
+
+// ---------------------------------------------------------------- ascension
+/** Godsparks an Ascension now would give: from Favor earned since the last one, plus this run's pending Favor. */
+export function pendingSparks(s: GameState, d: Derived): number {
+  const favor = s.meta.ascFavor + (canPrestige(s, d) ? pendingFavor(s, d) : 0);
+  return Math.floor(Math.sqrt(favor / ASCEND.favorPerSpark));
+}
+/** Ascension opens once any run has reached the Sunless Sea. */
+export const ascendOpen = (s: GameState) => s.meta.bestDepth >= ASCEND.depth || s.meta.ascensions > 0;
+export const canAscend = (s: GameState, d: Derived) => ascendOpen(s) && pendingSparks(s, d) >= 1;

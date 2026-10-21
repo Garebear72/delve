@@ -1,8 +1,8 @@
 // Player actions. Each returns true when something changed.
 import { MINIGAMES } from '../data/minigames';
 import { gameForPrestige } from './minigames';
-import { CLASSES, ClassId, COMBO_MAX, COMBO_STEP, COMBO_WINDOW, DIVINE, FLOORS, FloorId, GEAR, GodId, JobId, JOBS, RaceId, RESEARCH, ResId, RELICS } from '../data/defs';
-import { derive, div, floorCostMult, pendingFavor, canPrestige } from './calc';
+import { CELESTIAL, CLASSES, ClassId, COMBO_MAX, COMBO_STEP, COMBO_WINDOW, DIVINE, FLOORS, FloorId, GEAR, GodId, JobId, JOBS, RaceId, RESEARCH, ResId, RELICS } from '../data/defs';
+import { canAscend, canPrestige, cel, derive, div, floorCostMult, pendingFavor, pendingSparks } from './calc';
 import { emit, toast } from './events';
 import { digCheck, add } from './sim';
 import { addXp, bonuses, respecTrees } from './skills';
@@ -173,7 +173,7 @@ export function buyGearTier(s: GameState, kind: 'w' | 'a') {
 // ---------------------------------------------------------------- divine
 export function divineCost(s: GameState, id: string) {
   const def = DIVINE.find((x) => x.id === id)!;
-  return Math.ceil(def.base * Math.pow(def.growth, div(s, id)));
+  return Math.ceil(def.base * Math.pow(def.growth, div(s, id)) * Math.pow(0.92, cel(s, 'bargain')));
 }
 export function buyDivine(s: GameState, id: string) {
   const def = DIVINE.find((x) => x.id === id);
@@ -195,6 +195,7 @@ export function prestige(s: GameState, keep: string[], race: RaceId, god: GodId,
   const bonus = s.run.relics.filter((id) => !kept.includes(id)).reduce((a, id) => a + (RELICS[id].rare ? 5 : 2), 0);
   s.meta.favor += gain + bonus;
   s.meta.totalFavor += gain + bonus;
+  s.meta.ascFavor += gain + bonus;
   s.meta.prestiges++;
   s.meta.reliquary = kept;
   if (respec) respecTrees(s);
@@ -204,6 +205,47 @@ export function prestige(s: GameState, keep: string[], race: RaceId, god: GodId,
   if (game && MINIGAMES[game].built) {
     toast(`New mini-game unlocked: ${MINIGAMES[game].icon} ${MINIGAMES[game].name}! Find it in the Games tab.${game === 'dice' ? ' (It needs a Tavern.)' : ''}`, 'epic');
   }
+  emit('prestige');
+  return true;
+}
+
+// ---------------------------------------------------------------- ascension
+export function celestialCost(s: GameState, id: string) {
+  const def = CELESTIAL.find((x) => x.id === id)!;
+  return Math.ceil(def.base * Math.pow(def.growth, cel(s, id)));
+}
+export function buyCelestial(s: GameState, id: string) {
+  const def = CELESTIAL.find((x) => x.id === id);
+  if (!def || (def.max !== undefined && cel(s, id) >= def.max)) return false;
+  const cost = celestialCost(s, id);
+  if (s.meta.sparks < cost) return false;
+  s.meta.sparks -= cost;
+  s.meta.celestial[id] = cel(s, id) + 1;
+  return true;
+}
+/** Switch an owned automation upgrade on or off. */
+export function toggleCelestial(s: GameState, id: string) {
+  if (!CELESTIAL.find((x) => x.id === id)?.toggle || cel(s, id) < 1) return false;
+  const off = s.meta.celOff;
+  s.meta.celOff = off.includes(id) ? off.filter((x) => x !== id) : [...off, id];
+  return true;
+}
+
+/** Tier-2 prestige: trade Divine Favor and the Divine Tree (and this run) for Godsparks. */
+export function ascend(s: GameState) {
+  const d = derive(s);
+  if (!canAscend(s, d)) return false;
+  const gain = pendingSparks(s, d);
+  const m = s.meta;
+  m.sparks += gain;
+  m.totalSparks += gain;
+  m.ascensions++;
+  m.favor = 0;
+  m.ascFavor = 0;
+  m.divine = {};
+  m.reliquary = m.reliquary.slice(0, reliquarySlots(s));
+  s.run = newRun(m, s.run.race, s.run.god);
+  toast(`✨ You Ascend! +${gain} Godsparks. Your Favor and Divine Tree are gone, but the heavens remember you.`, 'epic');
   emit('prestige');
   return true;
 }

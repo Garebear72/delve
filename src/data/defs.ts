@@ -121,6 +121,7 @@ export const BIOMES: BiomeDef[] = [
   { id: 'sea', name: 'The Sunless Sea', from: 145, colors: ['#1f3b4d', '#183040', '#28495e'], speck: '#5fcde4', floorMult: { farm: 1.8, tavern: 1.4, storage: 0.7, forge: 0.6 } },
   { id: 'bones', name: 'Bone Catacombs', from: 185, colors: ['#4a4440', '#3b3633', '#5a534e'], speck: '#f3ead8', floorMult: { shrine: 1.7, arena: 1.5, farm: 0.5, tavern: 0.8 } },
   { id: 'core', name: 'The Hollow Core', from: 230, colors: ['#5a2a1a', '#46200f', '#6e3820'], speck: '#fbf236', floorMult: { forge: 2.5, treasury: 1.6, smeltery: 2, farm: 0.4 } },
+  { id: 'astral', name: 'The Astral Undercroft', from: 280, colors: ['#2a2346', '#211b38', '#3a3060'], speck: '#fbf236', floorMult: { shrine: 2.5, library: 1.5, farm: 0.3, barracks: 1.3 } },
 ];
 // GUARDIANS[i] seals the entrance to BIOMES[i + 1].
 export const GUARDIANS: { name: string; sprite: string; pal: Record<string, string>; scale: number; hp: number; atk: number; relic: string }[] = [
@@ -133,6 +134,8 @@ export const GUARDIANS: { name: string; sprite: string; pal: Record<string, stri
   { name: 'Admiral Squidbeard', sprite: 'squid', pal: {}, scale: 7, hp: 8e9, atk: 8e6, relic: 'inkPot' },
   { name: 'The Lich Who Lost Their Keys', sprite: 'lich', pal: {}, scale: 7, hp: 9e10, atk: 6e7, relic: 'phylactery' },
   { name: 'The Sleepy Tarrasque', sprite: 'troll', pal: { G: '#6e3820', B: '#3a201c', y: '#fbf236', w: '#f3ead8' }, scale: 9, hp: 1.4e12, atk: 5e8, relic: 'tarrasqueScale' },
+  // Only a god who has Ascended at least once may challenge the Godling (see ASCEND.godlingAscensions).
+  { name: 'The Dreaming Godling', sprite: 'wraith', pal: { l: '#c9a7ff', k: '#5b2f8a', w: '#fbf236' }, scale: 8, hp: 2e13, atk: 4e9, relic: 'godlingDream' },
 ];
 
 // ---------------------------------------------------------------- combat
@@ -247,6 +250,7 @@ export const RELICS: Record<string, { name: string; desc: string; effect: RelicE
   inkPot: { name: "Squidbeard's Ink Pot", desc: '+50% mushrooms.', effect: 'food', value: 0.5, rare: true },
   phylactery: { name: 'Spare Phylactery', desc: '+50% squad HP.', effect: 'hp', value: 0.5, rare: true },
   tarrasqueScale: { name: 'Tarrasque Scale', desc: '+60% squad attack.', effect: 'atk', value: 0.6, rare: true },
+  godlingDream: { name: "A Godling's Dream", desc: '+100% squad attack. It hums.', effect: 'atk', value: 1, rare: true },
   mapScrap: { name: 'Torn Treasure Map', desc: '+10% digging.', effect: 'dig', value: 0.1, rare: false },
   charm: { name: 'Charm Bracelet', desc: '+10% squad attack.', effect: 'atk', value: 0.1, rare: false },
   bellows: { name: 'Tiny Bellows', desc: '+15% knowledge.', effect: 'know', value: 0.15, rare: false },
@@ -329,21 +333,49 @@ export const DIVINE: DivineDef[] = [
   { id: 'fortune', name: "Fortune's Favor", desc: '+15% Curio luck in mini-games per level.', base: 25, growth: 2, max: 10 },
 ];
 
+// ---------------------------------------------------------------- ascension (tier-2 prestige)
+/**
+ * Ascension resets the run, Divine Favor and the Divine Tree for Godsparks, spent on the Celestial Tree.
+ * Godsparks = floor(sqrt(Favor earned since the last Ascension / favorPerSpark²)).
+ */
+export const ASCEND = {
+  depth: 145, // reaching the Sunless Sea (in any run) unlocks Ascension
+  favorPerSpark: 5000, // sparks = floor(sqrt(favor / this))
+  godlingAscensions: 1, // Ascensions needed to challenge the Dreaming Godling
+  runningStart: [8, 20, 35, 55, 80], // Running Start: starting depth per level
+  marchZones: 10, // Forced March: zones below level × this fight like zone 1
+};
+export interface CelestialDef { id: string; name: string; desc: string; base: number; growth: number; max?: number; mult?: number; toggle?: boolean }
+/** Celestial Tree (bought with Godsparks). `mult` upgrades compound like the Divine Tree; calc.ts reads them through celMult(). */
+export const CELESTIAL: CelestialDef[] = [
+  { id: 'starfire', name: 'Starfire', desc: 'Divine Favor ×1.5 per level (compounds).', base: 1, growth: 2, mult: 0.5 },
+  { id: 'might', name: 'Astral Might', desc: 'Squad damage and HP ×1.5 per level (compounds).', base: 1, growth: 2, mult: 0.5 },
+  { id: 'industry', name: 'Heavenly Industry', desc: 'Mining, mushrooms, knowledge and gold ×1.5 per level (compounds).', base: 1, growth: 2, mult: 0.5 },
+  { id: 'humbled', name: 'Humbled Guardians', desc: 'Guardians have 15% less HP per level.', base: 2, growth: 2, max: 5 },
+  { id: 'bargain', name: 'Divine Bargain', desc: 'Divine Tree upgrades cost 8% less per level.', base: 2, growth: 2, max: 5 },
+  { id: 'start', name: 'Running Start', desc: 'Start every run deeper (depth 8, 20, 35, 55, 80), with the guardians above already beaten.', base: 2, growth: 2.5, max: 5 },
+  { id: 'march', name: 'Forced March', desc: 'Expedition zones below 10 per level are pushovers: their monsters fight like zone 1.', base: 3, growth: 3, max: 3 },
+  { id: 'autoResearch', name: 'Celestial Librarians', desc: 'Auto-Research: buys every research project as soon as you can afford it (switchable).', base: 3, growth: 1, max: 1, toggle: true },
+  { id: 'autoBoss', name: 'Stubborn Squad', desc: 'Auto-Retry: the squad retries a zone boss on its own 30 seconds after losing (switchable).', base: 2, growth: 1, max: 1, toggle: true },
+];
+
 // ---------------------------------------------------------------- races & gods
-export type RaceId = 'dwarf' | 'goblin' | 'gnome' | 'kobold';
+export type RaceId = 'dwarf' | 'goblin' | 'gnome' | 'kobold' | 'mole';
 export const RACES: Record<RaceId, { name: string; desc: string; unlockText: string }> = {
   dwarf: { name: 'Hill Dwarves', desc: '+25% digging, +10% squad HP. Reliable. Beardy.', unlockText: '' },
   goblin: { name: 'Unionized Goblins', desc: '+40% to all jobs, but they take a mandatory 20s Union Break every 2 minutes.', unlockText: 'Prestige once' },
   gnome: { name: 'Tinkering Gnomes', desc: '+60% knowledge, research costs 30% less, but -20% squad HP. Mostly hats.', unlockText: 'Prestige 3 times' },
   kobold: { name: 'Kobold Hoarders', desc: 'Double storage and +30% gold, but -10% digging. Shiny!', unlockText: 'Reach depth 80' },
+  mole: { name: 'Star-Touched Moles', desc: '+100% digging and +50% ore, but -30% colony growth and -15% squad damage (torches are scary).', unlockText: 'Ascend once' },
 };
-export type GodId = 'forge' | 'snorg' | 'pebble' | 'krog' | 'moss';
+export type GodId = 'forge' | 'snorg' | 'pebble' | 'krog' | 'moss' | 'twinkle';
 export const GODS: Record<GodId, { name: string; desc: string; unlockText: string }> = {
   forge: { name: 'Old Hammerbeard, the Forge-Father', desc: 'Gear is 25% more effective.', unlockText: '' },
   snorg: { name: 'Snorg, God of Snacks', desc: '+50% mushrooms, +25% colony growth.', unlockText: 'Prestige once' },
   pebble: { name: 'Pebble, God of Rocks', desc: 'Double stone. Pebble does not care about anything else.', unlockText: 'Mine 1,000 stone' },
   krog: { name: 'Krog, God of Bonking', desc: '+40% squad damage, but -15% digging. BONK.', unlockText: 'Defeat Mother Mycelia' },
   moss: { name: 'Grandmother Moss, Goddess of Naps', desc: '+8 hours of offline progress and +25% job output while you leave the colony alone.', unlockText: 'Prestige 5 times' },
+  twinkle: { name: 'Twinkle, God of Very Small Stars', desc: '+50% Divine Favor, but -40% gold. Twinkle is doing their best.', unlockText: 'Ascend twice' },
 };
 
 // ---------------------------------------------------------------- achievements
@@ -403,6 +435,11 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: 'guard7', name: 'Calamari', desc: 'Defeat Admiral Squidbeard.', check: (s) => s.run.guardians.includes(6) },
   { id: 'guard8', name: 'Found Them!', desc: 'Defeat the Lich Who Lost Their Keys.', check: (s) => s.run.guardians.includes(7) },
   { id: 'guard9', name: 'Let Sleeping Tarrasques Lie', desc: 'Defeat the Sleepy Tarrasque.', check: (s) => s.run.guardians.includes(8) },
+  { id: 'guard10', name: 'Rude Awakening', desc: 'Defeat the Dreaming Godling.', check: (s) => s.run.guardians.includes(9) },
+  { id: 'dig280', name: 'Beneath Beneath', desc: 'Reach the Astral Undercroft (depth 280).', check: (s) => s.run.depth >= 280 },
+  { id: 'ascend1', name: 'Promoted to Middle Management', desc: 'Ascend for the first time.', check: (s) => s.meta.ascensions >= 1 },
+  { id: 'ascend5', name: 'Frequent Ascender', desc: 'Ascend 5 times.', check: (s) => s.meta.ascensions >= 5 },
+  { id: 'sparks100', name: 'Fire in the Hole', desc: 'Earn 100 Godsparks in total.', check: (s) => s.meta.totalSparks >= 100 },
   { id: 'pop500', name: 'Under-Mountain Metropolis', desc: 'Have 500 colonists.', check: (s) => s.run.pop >= 500 },
   { id: 'pop2000', name: 'Dwarven Empire', desc: 'Have 2,000 colonists.', check: (s) => s.run.pop >= 2000 },
   { id: 'kill10k', name: 'Professional Bonker', desc: 'Defeat 10,000 monsters.', check: (s) => lt(s, 'kills') >= 1e4 },

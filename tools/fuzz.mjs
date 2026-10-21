@@ -29,6 +29,7 @@ function check(s, label) {
   for (const [k, v] of Object.entries(r.combat.plan)) if (v < 0) throw new Error(`${label}: plan.${k} = ${v}`);
   if (!Number.isFinite(r.combat.enemyHp) || !Number.isFinite(r.combat.squadHp)) throw new Error(`${label}: combat NaN`);
   if (!Number.isFinite(s.meta.favor) || s.meta.favor < -1e-6) throw new Error(`${label}: favor = ${s.meta.favor}`);
+  if (!Number.isFinite(s.meta.sparks) || s.meta.sparks < 0) throw new Error(`${label}: sparks = ${s.meta.sparks}`);
   const d = calc.derive(s);
   for (const [k, v] of Object.entries(d.rates)) if (!Number.isFinite(v)) throw new Error(`${label}: rate.${k} = ${v}`);
   if (r.dungeon && (!Number.isFinite(r.dungeon.hp) || r.dungeon.hp < 0)) throw new Error(`${label}: dungeon hp ${r.dungeon.hp}`);
@@ -65,6 +66,9 @@ const ACTIONS = [
   ['door', (s) => DG.chooseDoor(s, rint(4) - 1)],
   ['leave', (s) => DG.leaveDungeon(s)],
   ['prestige', (s) => { if (Math.random() < prestigeRate) A.prestige(s, s.run.relics.slice(0, 2), pick(s.meta.races), pick(s.meta.gods), Math.random() < 0.3); }],
+  ['celestial', (s) => A.buyCelestial(s, pick(defs.CELESTIAL).id)],
+  ['celToggle', (s) => A.toggleCelestial(s, pick(defs.CELESTIAL).id)],
+  ['ascend', (s) => { if (Math.random() < prestigeRate) A.ascend(s); }],
   ['wait', (s) => sim.advance(s, pick([0.25, 1, 5, 30]))],
   ['away', (s) => { if (Math.random() < 0.02) sim.catchUp(s, pick([60, 600, 3600])); }],
 ];
@@ -77,6 +81,7 @@ for (const [si, base] of seeds.entries()) {
   s.meta.prestiges = Math.max(s.meta.prestiges, 4); // open every mini-game
   s.meta.bestiary.g1 = 1; // open dungeons
   s.meta.favor += 1e4; s.meta.totalFavor += 1e4;
+  s.meta.ascFavor += 1e6; s.meta.sparks += 40; s.meta.bestDepth = Math.max(s.meta.bestDepth, 145); // open Ascension
   for (let i = 0; i < steps; i++) {
     const [name, fn] = pick(ACTIONS);
     counts[name] = (counts[name] ?? 0) + 1;

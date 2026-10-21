@@ -69,6 +69,7 @@ This is a living document. Everything here can change.
 | 145 | The Sunless Sea | Admiral Squidbeard | — |
 | 185 | Bone Catacombs | The Lich Who Lost Their Keys | — |
 | 230 | The Hollow Core | The Sleepy Tarrasque | — |
+| 280 | The Astral Undercroft | The Dreaming Godling (only challengeable after at least one Ascension) | — |
 
 Ideas for later biomes: Ancient Ruins (puzzle doors, lore), The Underdark, The Clockwork Deep (automation), The Lasagna Layer (nobody knows why it's here), …the Bottom?
 
@@ -104,12 +105,20 @@ Ideas for later biomes: Ancient Ruins (puzzle doors, lore), The Underdark, The C
 | Tier | Name | Currency | Resets | Keeps |
 |---|---|---|---|---|
 | 1 | New Expedition | Divine Favor | Depth, floors, workers, resources, gear, combat zone, run skill trees | Divine Favor + Divine Tree, achievements, collection log, lifetime stats, unlocked races/gods, mini-game upgrades, Reliquary |
-| 2 | Ascension | (TBD, e.g. Godsparks) | Tier 1 currency & Divine Tree | Tier 2 currency & upgrades, + everything above |
+| 2 | Ascension (built) | Godsparks ✨ | The run, Divine Favor & the whole Divine Tree | Godsparks + Celestial Tree, + everything above (skills, prestige count, races/gods, Curios, Heirlooms) |
 | 3+ | (later) | | | |
 
 - Later runs should catch up to the previous best much faster, then push further until the next wall.
 - Target: **first prestige within ~2 hours** for a new player.
 - **Favor** = (depth^1.4/8 + zone^1.7/3), ×1.008 per level past depth 35 and ×1.01 per zone past 20, × Shrines, guardians beaten (×1.25 each), skills, research, Curios and Wheel blessings.
+
+### Ascension (tier 2, built)
+- **Unlocks** once any run reaches the Sunless Sea (depth 145). Saves from before Ascension count all their Favor so far.
+- **Godsparks** = ⌊√(Favor earned since the last Ascension ÷ 5,000)⌋, counting this run's pending Favor. 4× the Favor = 2× the sparks, so each Ascension wants a longer cycle.
+- **Celestial Tree** (`CELESTIAL` in defs.ts): Starfire (Favor ×1.5/level), Astral Might (squad dmg+HP ×1.5/level), Heavenly Industry (jobs + gold ×1.5/level) all compound, costs ×2 per level. Humbled Guardians (−15% guardian HP, max 5), Divine Bargain (−8% Divine Tree costs, max 5). Faster early runs: Running Start (start at depth 8/20/35/55/80 with those guardians beaten), Forced March (zones below 10/20/30 fight like zone 1), Celestial Librarians (Auto-Research) and Stubborn Squad (Auto-Retry zone bosses after 30 s); the automation two can be switched off.
+- **New patrons:** Star-Touched Moles (1st Ascension), Twinkle, God of Very Small Stars (2nd Ascension).
+- **Content gate:** the 11th biome, the Astral Undercroft (depth 280); its guardian only fights a god who has Ascended.
+- Bot ascends when it would at least double its lifetime Godsparks (`tools/bot.js`, `ascend` option).
 
 ### Pacing targets (measured with the autoplay bot: `npx tsx tools/pacing.mjs 96`)
 The bot plays efficiently around the clock (taps a quarter of the time); a real player is roughly 2–3× slower.
@@ -120,11 +129,12 @@ The bot plays efficiently around the clock (taps a quarter of the time); a real 
 | Magma Rift (55) | ~3–4 h | ~8–10 h |
 | Crystal Grotto (80) | ~8–11 h | ~1 day |
 | Mithril Deeps (110) | ~15–19 h | ~2 days |
-| Sunless Sea (145) | ~30 h | ~3–4 days |
-| Bone Catacombs (185) | ~90 h | ~1–2 weeks |
-| Hollow Core (230) | beyond 96 h | weeks |
+| Sunless Sea (145) / Ascension unlocks | ~28–31 h | ~3–4 days |
+| 1st Ascension (+6 ✨) | ~31 h | ~4 days |
+| Bone Catacombs (185) | ~95 h (after 3 Ascensions) | ~1.5–2 weeks |
+| Hollow Core (230), Astral Undercroft (280) | beyond 200 h | many weeks |
 
-After the Sunless Sea progress slows into a long climb (Favor per run grows slowly); a tier-2 prestige layer is the planned answer. Comparable games: first prestige ~1–2 h (Antimatter Dimensions, Realm Grinder), Trimps' first Portal several hours in.
+Measured 2026-10-21 with `npx tsx tools/pacing.mjs 200 400`. Without Ascension the bot sat at the Sunless Sea from ~44 h to 96 h, earning 130k–172k Favor per run. With it, Ascensions came at 31 h (+6 ✨), 47 h (+7), 66 h (+13), 108 h (+26) and 178 h (+54), getting further apart each time. By 200 h the bot was at depth 204 and zone 101, earning ~1.6M Favor per run, with Celestial levels starfire 4, might 4, industry 4. The next wall is the Sleepy Tarrasque (230); a tier-3 layer or more Celestial nodes are the next lever. Comparable games: first prestige ~1–2 h (Antimatter Dimensions, Realm Grinder), Trimps' first Portal several hours in.
 
 ### The Reliquary
 - A limited set of slots for rare artifacts you choose to **keep across runs**.
@@ -273,8 +283,9 @@ Ideas for later activities:
 - Dungeons (Hidden Caverns) + 9 Heirlooms.
 - Synthesised sound effects (Menu toggle + volume), a "next goal" guide in the hint line, more battle backgrounds, offline report shows caverns.
 
+**v0.4** — Ascension (tier-2 prestige): Godsparks, the 9-node Celestial Tree (multipliers, Running Start, Forced March, Auto-Research, Auto-Retry), Star-Touched Moles and Twinkle, the Astral Undercroft biome and the Dreaming Godling, 5 achievements; the bot ascends.
+
 **Next up (candidates)**
-- Tier-2 prestige (Ascension) to lift the late-game plateau after the Sunless Sea.
 - More cavern room types and events; Ancient Ruins biome with puzzle doors; special named workers.
 - Mini-game upgrades (Plinko auto-dropper, cart insurance) and in-game events in the arcade events strip.
 - Optional auto-retry for zone bosses (as a skill node or research).

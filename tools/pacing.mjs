@@ -7,4 +7,5 @@ const r = summary({ hours, taps: 3, activeShare: 0.25, prestiges, prestigeAfterM
 console.log(r.runs.join('\n'));
 console.log(JSON.stringify(r.end));
 console.log(JSON.stringify(r.divine));
+console.log('celestial', JSON.stringify(r.celestial));
 console.log(`(${r.realSec}s)`);

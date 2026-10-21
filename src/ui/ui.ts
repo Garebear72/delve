@@ -2,7 +2,7 @@
 import morphdom from 'morphdom';
 import { AbilityId, BIOMES, ClassId, JobId, FloorId, GUARDIANS, RESEARCH, RESOURCES, RES_IDS, RaceId, GodId } from '../data/defs';
 import * as A from '../game/actions';
-import { canPrestige, Derived } from '../game/calc';
+import { canAscend, canPrestige, Derived } from '../game/calc';
 import type { GameState } from '../game/state';
 import { on } from '../game/events';
 import { deleteSlot, exportString, importString, loadBackup, renameSlot, saveSlot } from '../game/save';
@@ -27,7 +27,7 @@ import { chooseDoor, enterCavern, leaveDungeon } from '../game/dungeons';
 import type { GameId } from '../data/minigames';
 import { arcadeView, gamesPanel } from './gamesPanel';
 import {
-  battlePanel, bookPanel, buildPanel, colonyPanel, divinePanel, floorPanel, importModal, prestigeModal, settingsPanel, UIState,
+  ascendModal, battlePanel, bookPanel, buildPanel, colonyPanel, divinePanel, floorPanel, importModal, prestigeModal, settingsPanel, UIState,
 } from './panels';
 
 export const ui: UIState = {
@@ -267,6 +267,19 @@ function act(name: string, arg: string) {
     case 'tier': A.buyGearTier(s, arg as 'w' | 'a'); break;
     case 'pip': ui.pip = !ui.pip; break;
     case 'divine': A.buyDivine(s, arg); break;
+    case 'celestial': A.buyCelestial(s, arg); break;
+    case 'celToggle': A.toggleCelestial(s, arg); break;
+    case 'ascendOpen': showModal('prestige', ascendModal(s, store.d)); return;
+    case 'ascend':
+      if (A.ascend(s)) {
+        const entries = (history.state?.delve === 'modal' ? 1 : 0) + (ui.tab ? 1 : 0) + (ui.game ? 1 : 0);
+        ui.game = null; $('arcade').classList.add('hidden');
+        closeModal(true);
+        openTab(null, true);
+        if (entries) { ignorePops++; history.go(-entries); }
+        refresh(); saveNow(); mine.jumpToFront();
+      }
+      return;
     case 'prestigeOpen':
       ui.keep = s.run.relics.filter((id) => s.meta.reliquary.includes(id)).slice(0, A.reliquarySlots(s));
       ui.nextRace = s.run.race; ui.nextGod = s.run.god;
@@ -400,6 +413,7 @@ function devAction(what: string) {
   if (what === 'guardian' && d.blocked >= 0) { r.guardians.push(d.blocked); }
   if (what === 'zones') { r.combat.zone += 5; r.maxZone = Math.max(r.maxZone, r.combat.zone - 1); r.combat.cell = 0; r.combat.enemyHp = 0; }
   if (what === 'favor') { s.meta.favor += 50; }
+  if (what === 'sparks') { s.meta.sparks += 5; s.meta.totalSparks += 5; }
   if (what === 'prestigeCount') { s.meta.prestiges++; toast(`Prestige count is now ${s.meta.prestiges} (unlocks only, no reset).`, 'good'); }
   if (what === 'research') { for (const x of RESEARCH) if (!r.research.includes(x.id)) r.research.push(x.id); }
   if (what === 'away') { showOffline(applyOffline(3600)); }
@@ -449,6 +463,7 @@ function renderTop() {
   chips.push(`<div class="chip">${icon('i_pop')}<b>${Math.floor(r.pop)}/${d.maxPop}</b><small>${d.idle} idle</small></div>`);
   chips.push(`<div class="chip">⛏<b>${r.depth}</b><small>depth</small></div>`);
   if (s.meta.favor > 0 || s.meta.prestiges > 0) chips.push(`<div class="chip">${icon('i_favor')}<b>${fmt(s.meta.favor)}</b></div>`);
+  if (s.meta.totalSparks > 0) chips.push(`<div class="chip">✨<b>${fmt(s.meta.sparks)}</b></div>`);
   if (store.speed !== 1) chips.push(`<div class="chip dev">×${store.speed}</div>`);
   morphdom($('topbar'), `<div id="topbar">${chips.join('')}</div>`);
 }
@@ -508,6 +523,7 @@ function nextGoal(s: GameState, d: Derived): string {
   if (d.blocked >= 0) return `Defeat ${GUARDIANS[d.blocked].name} in the Battle tab.`;
   if (!r.guardians.includes(0)) return `Dig to depth ${BIOMES[1].from}: something big waits there (${r.depth}/${BIOMES[1].from}).`;
   if (s.meta.prestiges === 0) return 'Prestige from the Divine tab when you feel stuck. Push deeper first for more Favor!';
+  if (s.meta.ascensions === 0 && canAscend(s, d)) return 'You can Ascend from the Divine tab: trade your Favor and Divine Tree for Godsparks.';
   const next = BIOMES.find((b) => b.from > r.depth);
   if (next) return `Dig to depth ${next.from} to reach the ${next.name} (${r.depth}/${next.from}).`;
   return `Push the Expedition past zone ${r.maxZone}.`;

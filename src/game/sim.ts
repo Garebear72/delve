@@ -1,9 +1,10 @@
 // The simulation: advances the game by dt seconds.
 import {
-  ABILITIES, AbilityId, ACHIEVEMENTS, BIOMES, BOSS_RELICS, CLASSES, CLASS_IDS, CRIT_CHANCE, ENEMIES, FLOORS, FLOOR_IDS, GUARDIANS, HEAL_PULSE,
+  ABILITIES, AbilityId, ACHIEVEMENTS, ASCEND, BIOMES, RESEARCH, BOSS_RELICS, CLASSES, CLASS_IDS, CRIT_CHANCE, ENEMIES, FLOORS, FLOOR_IDS, GUARDIANS, HEAL_PULSE,
   FOOD_PER_BIRTH, GODS, GodId, ITEMS, KILL_HEAL, MAX_VOLLEYS, ORES, RACES, RaceId, RELICS, RESOURCES, RES_IDS, STARVE_INTERVAL, ZONE_CELLS,
 } from '../data/defs';
-import { blockingGuardian, derive, Derived, enemyFor, enemyStats, goldMult, hasAbility, hasAutoCast, levelHp, squadStats } from './calc';
+import { ascendOpen, blockingGuardian, celOn, derive, Derived, enemyFor, enemyStats, goldMult, guardianHp, hasAbility, hasAutoCast, levelHp, squadStats } from './calc';
+import { buyResearch } from './actions';
 import { emit, toast } from './events';
 import { addXp, bonuses, isOffline, setOffline } from './skills';
 import { PERK_POINTS_PER_GUARDIAN, XP } from '../data/skills';
@@ -91,9 +92,16 @@ export function tick(s: GameState, d: Derived, dt: number) {
   }
 
   if (r.combatUnlocked) tickCombat(s, d, dt);
+  r.combat.holdT = r.combat.bossHold ? r.combat.holdT + dt : 0;
 
   achTimer += dt;
-  if (achTimer >= 1) { achTimer = 0; checkProgress(s); }
+  if (achTimer >= 1) { achTimer = 0; checkProgress(s); autoplay(s); }
+}
+
+/** Celestial automation: Auto-Research and Auto-Retry (each can be switched off). */
+function autoplay(s: GameState) {
+  if (celOn(s, 'autoResearch')) for (const x of RESEARCH) if (!s.run.research.includes(x.id) && x.req(s)) buyResearch(s, x.id);
+  if (celOn(s, 'autoBoss') && s.run.combat.holdT >= 30) retryZoneBoss(s);
 }
 
 export function digCheck(s: GameState) {
@@ -327,9 +335,13 @@ export function startGuardian(s: GameState) {
   const d = derive(s);
   const c = s.run.combat;
   if (d.blocked < 0 || !c.alive || c.mode === 'guardian') return;
+  if (d.blocked === GUARDIANS.length - 1 && s.meta.ascensions < ASCEND.godlingAscensions) {
+    toast(`${GUARDIANS[d.blocked].name} only stirs for a god who has Ascended.`, 'bad');
+    return;
+  }
   c.mode = 'guardian'; c.guardian = d.blocked;
   const g = GUARDIANS[d.blocked];
-  c.enemyHp = c.enemyMax = g.hp;
+  c.enemyHp = c.enemyMax = guardianHp(s, d.blocked);
   toast(`${g.name} awakens!`, 'epic');
 }
 
@@ -352,6 +364,8 @@ const PATRON_UNLOCKS: { kind: 'race' | 'god'; id: string; check: (s: GameState) 
   { kind: 'god', id: 'krog', check: (s) => s.run.guardians.includes(2) },
   { kind: 'race', id: 'kobold', check: (s) => s.meta.bestDepth >= 80 },
   { kind: 'god', id: 'moss', check: (s) => s.meta.prestiges >= 5 },
+  { kind: 'race', id: 'mole', check: (s) => s.meta.ascensions >= 1 },
+  { kind: 'god', id: 'twinkle', check: (s) => s.meta.ascensions >= 2 },
 ];
 export function checkPatrons(s: GameState) {
   for (const u of PATRON_UNLOCKS) {
@@ -384,6 +398,10 @@ function checkProgress(s: GameState) {
   if (dungeonsOpen(s) && !s.meta.lifetime.dungeonsTold) {
     s.meta.lifetime.dungeonsTold = 1;
     toast('🕳️ Your miners hear echoes behind the walls... Hidden Caverns can now be found while digging past depth 10!', 'epic');
+  }
+  if (ascendOpen(s) && !s.meta.lifetime.ascendTold) {
+    s.meta.lifetime.ascendTold = 1;
+    toast('✨ You have reached the Sunless Sea. The heavens take notice: you can now Ascend from the Divine tab!', 'epic');
   }
   // 'divine2': older builds set 'divine' at depth 8, which would hide this announcement on their saves.
   once('divine2', r.guardians.includes(0) && s.meta.prestiges === 0, 'The gods are watching… The Divine tab is open. You can now prestige!', 'epic');

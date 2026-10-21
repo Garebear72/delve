@@ -1,12 +1,12 @@
 // HTML for each sheet panel. Buttons use data-act / data-arg and are handled in ui.ts.
 import {
-  ABILITIES, AbilityId, ACHIEVEMENTS, ACH_BONUS, ADJACENCY, CLASSES, CLASS_IDS, DIVINE, ENEMIES, FLOORS, FLOOR_IDS, FOOD_PER_COLONIST, GEAR, GODS, GUARDIANS,
+  ABILITIES, AbilityId, ACHIEVEMENTS, ACH_BONUS, ADJACENCY, ASCEND, CELESTIAL, CLASSES, CLASS_IDS, DIVINE, ENEMIES, FLOORS, FLOOR_IDS, FOOD_PER_COLONIST, GEAR, GODS, GUARDIANS,
   GodId, ITEMS, JOBS, JOB_IDS, RACES, RaceId, RELICS, RESEARCH, RESOURCES, RES_IDS, ResId,
 } from '../data/defs';
 import {
-  canAfford, divineCost, floorBuildCost, floorUnlocked, floorUpgradeCost, gearLevelCost, gearTierCost, gearTierReady, reliquarySlots, researchCost,
+  canAfford, celestialCost, divineCost, floorBuildCost, floorUnlocked, floorUpgradeCost, gearLevelCost, gearTierCost, gearTierReady, reliquarySlots, researchCost,
 } from '../game/actions';
-import { biomeAt, canPrestige, Derived, div, divMult, enemyStats, hasAbility, hasAutoCast, floorPower, gearMult, pendingFavor, squadStats } from '../game/calc';
+import { ascendOpen, biomeAt, canAscend, canPrestige, cel, celMult, celOn, Derived, div, divMult, enemyStats, guardianHp, pendingSparks, hasAbility, hasAutoCast, floorPower, gearMult, pendingFavor, squadStats } from '../game/calc';
 import { backupTime, hasBackup, listSlots } from '../game/save';
 import type { GameState } from '../game/state';
 import { store } from '../game/store';
@@ -164,8 +164,10 @@ export function battlePanel(s: GameState, d: Derived, ui: UIState) {
 
   const guardian = d.blocked >= 0 ? (() => {
     const g = GUARDIANS[d.blocked];
-    return `<div class="guardian"><b>${g.name}</b> blocks your mine.<div class="sub">HP ${fmt(g.hp)} · Attack ${fmt(g.atk)}/s</div>
-      ${c.mode === 'guardian' ? '<div class="tag bad">Fighting!</div>' : btn('Challenge', 'guardian', '', c.alive, 'epic')}</div>`;
+    const sealed = d.blocked === GUARDIANS.length - 1 && s.meta.ascensions < ASCEND.godlingAscensions;
+    return `<div class="guardian"><b>${g.name}</b> blocks your mine.<div class="sub">HP ${fmt(guardianHp(s, d.blocked))} · Attack ${fmt(g.atk)}/s</div>
+      ${sealed ? '<div class="sub">🔒 It only stirs for a god who has Ascended (Divine tab).</div>'
+        : c.mode === 'guardian' ? '<div class="tag bad">Fighting!</div>' : btn('Challenge', 'guardian', '', c.alive, 'epic')}</div>`;
   })() : '';
 
   const classes = CLASS_IDS.map((id) => {
@@ -237,9 +239,48 @@ export function divinePanel(s: GameState, d: Derived) {
     ${canPrestige(s, d) ? '' : `<div class="sub center">🔒 Defeat ${GUARDIANS[0].name} this run to prestige.</div>`}
     <p class="sub">Prestiging resets your colony, mine, gear and Expedition. You keep Favor, the Divine Tree, achievements, your collection and the relics in your Reliquary.</p>
     <h3>Divine Tree</h3>${tree}
+    ${ascensionSection(s, d)}
     <h3>Your Patrons</h3>
     <div class="sub">Race: <b>${RACES[s.run.race].name}</b> · God: <b>${GODS[s.run.god].name}</b></div>
     <div class="sub">${RACES[s.run.race].desc} ${GODS[s.run.god].desc}</div>`;
+}
+
+/** Ascension (tier-2 prestige) and the Celestial Tree, shown once the Sunless Sea has been reached. */
+function ascensionSection(s: GameState, d: Derived) {
+  const m = s.meta;
+  if (!ascendOpen(s)) {
+    return m.prestiges >= 5 ? `<h3>✨ Ascension</h3><div class="sub">🔒 Something greater than Favor stirs far below. Reach the Sunless Sea (depth ${ASCEND.depth}) to find out what.</div>` : '';
+  }
+  const pend = pendingSparks(s, d);
+  const tree = CELESTIAL.map((x) => {
+    const lvl = cel(s, x.id);
+    const maxed = x.max !== undefined && lvl >= x.max;
+    const cost = celestialCost(s, x.id);
+    const mul = celMult(s, x.id);
+    const now = x.mult && lvl ? ` Now ×${mul < 100 ? mul.toFixed(2) : fmt(mul)}.` : '';
+    const action = x.toggle && lvl ? btn(celOn(s, x.id) ? 'On' : 'Off', 'celToggle', x.id, true, celOn(s, x.id) ? 'on' : '')
+      : maxed ? '<span class="tag good">Max</span>' : btn('Kindle', 'celestial', x.id, m.sparks >= cost);
+    return `<div class="row"><div class="grow"><b>${x.name}</b> <span class="num">${lvl}${x.max ? '/' + x.max : ''}</span><div class="sub">${x.desc}${now}</div>
+      ${maxed ? '' : `<span class="cost ${m.sparks >= cost ? '' : 'short'}">✨${fmt(cost)}</span>`}</div>${action}</div>`;
+  }).join('');
+  return `
+    <h3>✨ Ascension</h3>
+    <div class="kv"><span>✨ Godsparks</span><span class="grow"></span><b>${fmt(m.sparks)}</b></div>
+    <div class="kv"><span>Earned on Ascension</span><span class="grow"></span><b class="good">+${fmt(pend)}</b></div>
+    <div class="sub">From all the Favor you've earned since your last Ascension (${fmt(m.ascFavor)}, plus this run's). Every 4× more Favor doubles your Godsparks.</div>
+    <div class="center">${btn('Ascend', 'ascendOpen', '', canAscend(s, d), 'epic big')}</div>
+    <p class="sub">Ascending resets this run, your Divine Favor and the whole Divine Tree. You keep Godsparks and the Celestial Tree, skills, achievements, Curios, Heirlooms, races, gods and your prestige count.</p>
+    <h3>Celestial Tree</h3>${tree}`;
+}
+
+export function ascendModal(s: GameState, d: Derived) {
+  const gain = pendingSparks(s, d);
+  const lost = Object.values(s.meta.divine).reduce((a, b) => a + b, 0);
+  return `<h2>✨ Ascend?</h2>
+    <p>You will gain <b class="good">+${fmt(gain)} Godsparks</b>.</p>
+    <p>You will lose <b>${fmt(s.meta.favor)} Divine Favor</b>, <b>${lost} Divine Tree levels</b> and this run. Your next run starts with the race and god you have now.</p>
+    ${s.meta.ascensions === 0 ? '<p class="sub">Your first Ascension also unlocks a new race: the Star-Touched Moles.</p>' : ''}
+    <div class="center">${btn('Cancel', 'closeModal')} ${btn('Ascend!', 'ascend', '', true, 'epic')}</div>`;
 }
 
 /** Locked races and gods, with how to unlock them. */
@@ -336,7 +377,7 @@ export function settingsPanel(s: GameState, d: Derived, ui: UIState) {
   const dev = !store.dev ? '' : `<h3>Developer</h3>
     <div class="wrap">${[1, 10, 100, 1000].map((n) => btn('×' + n, 'speed', n, true, store.speed === n ? 'on small' : 'small')).join('')}</div>
     <div class="wrap">${btn('+1K resources', 'dev', 'res', true, 'small')}${btn('+10 colonists', 'dev', 'pop', true, 'small')}${btn('+5 depth', 'dev', 'depth', true, 'small')}
-      ${btn('Beat guardian', 'dev', 'guardian', true, 'small')}${btn('+5 zones', 'dev', 'zones', true, 'small')}${btn('+50 Favor', 'dev', 'favor', true, 'small')}${btn('+1 prestige count', 'dev', 'prestigeCount', true, 'small')}
+      ${btn('Beat guardian', 'dev', 'guardian', true, 'small')}${btn('+5 zones', 'dev', 'zones', true, 'small')}${btn('+50 Favor', 'dev', 'favor', true, 'small')}${btn('+5 Godsparks', 'dev', 'sparks', true, 'small')}${btn('+1 prestige count', 'dev', 'prestigeCount', true, 'small')}
       ${btn('All research', 'dev', 'research', true, 'small')}${btn('Simulate 1h away', 'dev', 'away', true, 'small')}</div>
     <h3>Developer: skills</h3>
     ${SKILL_IDS.map((id) => `<div class="row"><div class="grow"><b>${SKILLS[id].icon} ${SKILLS[id].name}</b> <span class="num">Lv ${skillLevel(s, id)}</span>

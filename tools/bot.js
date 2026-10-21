@@ -127,7 +127,7 @@ function decide(s, log, t) {
 
 function milestones(s, log, t) {
   const r = s.run, m = (k, cond) => { if (cond && log.first[k] === undefined) log.first[k] = +(t / 60).toFixed(1); };
-  const p = s.meta.prestiges;
+  const p = log.runs; // runs so far (prestiges + Ascensions)
   m(`p${p}.barracks`, r.combatUnlocked);
   for (const z of [5, 10, 15, 20, 30, 40, 50, 60, 70, 85]) m(`p${p}.zone${z}`, r.maxZone >= z);
   for (const dd of [8, 20, 35, 55, 80, 110, 145, 185, 230]) m(`p${p}.depth${dd}`, r.depth >= dd);
@@ -136,10 +136,12 @@ function milestones(s, log, t) {
 
 // Prestige rule: once allowed, prestige after `prestigeAfterMin` minutes without a new depth or zone
 // (the run has stalled), or straight away if pending Favor is at least `favorRatio` × all Favor earned so far.
-export function play({ hours = 4, taps = 0, activeShare = 0.25, prestiges = 0, prestigeAfterMin = 20, favorRatio = 3, state = null } = {}) {
+// Ascension rule (when `ascend`): at a prestige point, Ascend instead if it would give at least
+// max(2, Godsparks earned so far), i.e. each Ascension at least doubles your total Godsparks.
+export function play({ hours = 4, taps = 0, activeShare = 0.25, prestiges = 0, prestigeAfterMin = 20, favorRatio = 3, ascend = true, state = null } = {}) {
   ev.setQuiet(true);
   const s = state ?? newGame();
-  const log = { first: {}, prestigeAt: [], favor: [] };
+  const log = { first: {}, prestigeAt: [], favor: [], sparks: [], runs: 0 };
   const total = hours * 3600;
   let t = 0, lastGain = 0, best = '';
   try {
@@ -160,8 +162,20 @@ export function play({ hours = 4, taps = 0, activeShare = 0.25, prestiges = 0, p
         const pend = calc.pendingFavor(s, d);
         if (t - lastGain >= prestigeAfterMin * 60 || pend >= favorRatio * Math.max(10, s.meta.totalFavor)) {
           const fav = calc.pendingFavor(s, d);
-          log.prestigeAt.push(+(t / 60).toFixed(1)); log.favor.push(fav);
-          A.prestige(s, s.run.relics.slice(0, A.reliquarySlots(s)), s.run.race, s.run.god);
+          const sparks = calc.pendingSparks(s, d);
+          log.prestigeAt.push(+(t / 60).toFixed(1)); log.favor.push(fav); log.runs++;
+          if (ascend && calc.canAscend(s, d) && sparks >= Math.max(2, s.meta.totalSparks)) {
+            log.sparks.push(sparks);
+            A.ascend(s);
+            // Spend Godsparks: cheapest Celestial upgrade, repeatedly.
+            for (let i = 0; i < 100; i++) {
+              const opts = defs.CELESTIAL.filter((x) => x.max === undefined || calc.cel(s, x.id) < x.max).sort((a, b) => A.celestialCost(s, a.id) - A.celestialCost(s, b.id));
+              if (!opts.length || !A.buyCelestial(s, opts[0].id)) break;
+            }
+          } else {
+            log.sparks.push(0);
+            A.prestige(s, s.run.relics.slice(0, A.reliquarySlots(s)), s.run.race, s.run.god);
+          }
           best = ''; lastGain = t;
           // Spend Favor: cheapest Divine upgrade, repeatedly.
           for (let i = 0; i < 100; i++) {
@@ -174,8 +188,8 @@ export function play({ hours = 4, taps = 0, activeShare = 0.25, prestiges = 0, p
   } finally { ev.setQuiet(false); }
   const r = s.run;
   return {
-    minutes: +(t / 60).toFixed(0), first: log.first, prestigeAt: log.prestigeAt, favor: log.favor,
-    end: { depth: r.depth, maxZone: r.maxZone, pop: Math.floor(r.pop), guardians: r.guardians, prestiges: s.meta.prestiges,
+    minutes: +(t / 60).toFixed(0), first: log.first, prestigeAt: log.prestigeAt, favor: log.favor, sparks: log.sparks,
+    end: { depth: r.depth, maxZone: r.maxZone, pop: Math.floor(r.pop), guardians: r.guardians, prestiges: s.meta.prestiges, ascensions: s.meta.ascensions, totalSparks: s.meta.totalSparks,
       skills: Object.fromEntries(skd.SKILL_IDS.map((k) => [k, SK.skillLevel(s, k)])), wipes: s.meta.lifetime.wipes ?? 0 },
     state: s,
   };

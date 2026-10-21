@@ -1,4 +1,4 @@
-import { ABILITIES, FLOORS, GODS, RACES } from '../data/defs';
+import { ABILITIES, ASCEND, BIOMES, FLOORS, GODS, RACES } from '../data/defs';
 import type { AbilityId, ClassId, FloorId, GodId, JobId, RaceId, ResId } from '../data/defs';
 import type { SkillId } from '../data/skills';
 import { CURIOS } from '../data/minigames';
@@ -22,6 +22,7 @@ export interface CombatState {
   regroup: number;
   farm: boolean;
   bossHold: boolean; // lost to this zone's boss: loop the normal enemies until the player retries
+  holdT: number; // seconds on bossHold (Auto-Retry fires after 30)
   cry: number;
   cryCd: number;
   wall: number;
@@ -116,6 +117,13 @@ export interface MetaState {
   alloc: Record<string, number>; // learned skill tree nodes and their ranks
   loadout: AbilityId[]; // equipped abilities
   curios: Record<string, number>; // Curios found (permanent), copies of each
+  // Ascension (tier 2): resets Favor and the Divine Tree for Godsparks.
+  sparks: number; // unspent Godsparks
+  totalSparks: number;
+  ascensions: number;
+  ascFavor: number; // Favor earned since the last Ascension (sets the Godsparks)
+  celestial: Record<string, number>; // Celestial Tree levels
+  celOff: string[]; // switchable Celestial upgrades the player has turned off
 }
 
 export interface GameState {
@@ -131,25 +139,29 @@ export function newCombat(): CombatState {
   return {
     zone: 1, cell: 0, enemyId: '', enemyHp: 0, enemyMax: 1, mode: 'zone', guardian: -1,
     alive: false, squad: zeroClasses(), plan: { ...zeroClasses(), recruit: 3 }, squadHp: 0, regroup: 0,
-    farm: false, bossHold: false, cry: 0, cryCd: 0, wall: 0, wallCd: 0, autoCast: false, swing: zeroClasses(), eSwing: 0, healT: 0,
+    farm: false, bossHold: false, holdT: 0, cry: 0, cryCd: 0, wall: 0, wallCd: 0, autoCast: false, swing: zeroClasses(), eSwing: 0, healT: 0,
   };
 }
 
 export function newRun(meta: MetaState, race: RaceId = 'dwarf', god: GodId = 'forge'): RunState {
   const hs = meta.divine.headstart ?? 0;
+  // Running Start: begin deeper, with the guardians sealing the biomes above already beaten.
+  const start = ASCEND.runningStart[(meta.celestial.start ?? 0) - 1] ?? 0;
+  const guardians: number[] = [];
+  for (let i = 1; i < BIOMES.length; i++) if (BIOMES[i].from <= start) guardians.push(i - 1);
   return {
     race, god,
     res: { food: 20 + hs * 50, stone: hs * 100, copper: 0, iron: 0, crystal: 0, mithril: 0, gold: 0, knowledge: 0 },
     pop: 2 + 2 * (meta.divine.ancestors ?? 0),
     starve: 0,
     jobs: { miner: 0, farmer: 0, scholar: 0 },
-    depth: 0, dig: 0, floors: [],
+    depth: start, dig: 0, floors: new Array(start).fill(null),
     gear: { wTier: 0, wLvl: 0, aTier: 0, aLvl: 0 },
     research: [],
     combatUnlocked: false,
     combat: newCombat(),
     maxZone: 0,
-    guardians: [],
+    guardians,
     relics: [...meta.reliquary],
     items: {},
     time: 0,
@@ -178,6 +190,7 @@ export function newMeta(): MetaState {
     alloc: {},
     loadout: [],
     curios: {},
+    sparks: 0, totalSparks: 0, ascensions: 0, ascFavor: 0, celestial: {}, celOff: [],
   };
 }
 
@@ -189,6 +202,8 @@ export function newGame(): GameState {
 /** Fill in any fields missing from an older save using a fresh default. */
 export function migrate(raw: any): GameState {
   const fresh = newGame();
+  // Saves from before Ascension existed: all Favor so far counts toward the first Ascension.
+  if (raw?.meta && raw.meta.ascFavor === undefined) raw.meta.ascFavor = raw.meta.totalFavor ?? 0;
   const out = fill(raw, fresh) as GameState;
   out.v = SAVE_VERSION;
   sanitize(out);
