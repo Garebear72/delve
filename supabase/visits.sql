@@ -1,13 +1,8 @@
--- Delve visitor log. Paste this whole file into Supabase → SQL Editor → New query → Run.
--- One row per visit. Rows are written only by the `visit` Edge Function (supabase/functions/visit),
--- which adds the visitor's IP address and its approximate location. Only the admin account can read them.
--- Rows are kept forever (no automatic deletion).
-
 create table if not exists public.visits (
-  id uuid primary key,                 -- random per visit, made by the browser
+  id uuid primary key,                 
   started_at timestamptz not null default now(),
   last_seen timestamptz not null default now(),
-  duration_s int not null default 0,   -- seconds the game was on screen
+  duration_s int not null default 0,   
   ip text,
   country text,
   country_code text,
@@ -16,12 +11,12 @@ create table if not exists public.visits (
   isp text,
   lat double precision,
   lon double precision,
-  user_agent text,                     -- browser/device string (parsed into device/browser/OS by admin.html)
+  user_agent text,                     
   screen text,
   lang text,
   timezone text,
   referrer text,
-  installed boolean,                   -- opened as the installed app rather than in a browser tab
+  installed boolean,                   
   username text,                       -- cloud-save account, if signed in
   version text
 );
@@ -30,21 +25,19 @@ create index if not exists visits_ip on public.visits (ip);
 
 alter table public.visits enable row level security;
 
--- The admin is the cloud-save account "garebear" (accounts are stored as <username>@players.garebear72.github.io).
+-- admin 
 create or replace function public.is_delve_admin() returns boolean
 language sql stable as $$
   select coalesce(auth.jwt() ->> 'email', '') = 'garebear@players.garebear72.github.io'
 $$;
 
--- Only the admin may read visits. Nobody may write through the public API: the Edge Function uses the
--- service role, which bypasses row-level security.
+-- Only the admin may read visits. Nobody may write through the public API
 grant select on public.visits to authenticated;
 grant all on public.visits to service_role;
 drop policy if exists "admin reads visits" on public.visits;
 create policy "admin reads visits" on public.visits for select to authenticated using (public.is_delve_admin());
 
--- Heartbeat from the Edge Function: update how long a visit lasted. The duration can't exceed the time
--- since the visit started, so a tampered heartbeat can't invent hours.
+-- Heartbeat from the Edge Function: update how long a visit lasted. 
 create or replace function public.visit_ping(p_id uuid, p_dur int, p_user text)
 returns void language sql security invoker set search_path = public as $$
   update public.visits
