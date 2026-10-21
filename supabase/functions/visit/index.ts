@@ -1,9 +1,4 @@
-// Supabase Edge Function "visit": records Delve visits in public.visits (see supabase/visits.sql).
-// The browser can't see its own IP, so it posts here and this function adds the IP (from the request's
-// x-forwarded-for header) and its approximate location. Deploy with JWT verification OFF: the game calls it
-// without a login token (navigator.sendBeacon can't send headers).
-//
-// Body (JSON, sent as text/plain so browsers skip the CORS preflight):
+// Body:
 //   { t: 'start', id, screen, lang, tz, ref, installed, user, ver }
 //   { t: 'ping', id, dur, user }
 
@@ -30,7 +25,7 @@ const isPublic = (ip: string) => !/^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01
 
 interface Geo { country?: string; country_code?: string; region?: string; city?: string; isp?: string; lat?: number; lon?: number }
 
-/** Approximate location from the IP: ip-api.com, falling back to ipwho.is. Never throws. */
+
 async function geo(ip: string): Promise<Geo> {
   if (!isPublic(ip)) return {};
   try {
