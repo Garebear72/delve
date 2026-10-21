@@ -29,6 +29,7 @@ npx tsx tools/fuzz.mjs 20000 6 0.05 # random actions on a fresh and a bot-grown 
 npx tsx tools/perf.mjs 40           # how long an 8 h offline catch-up takes on a deep save (keep it well under 1 s on desktop; phones are ~5× slower)
 ```
 Run the fuzz test after changing actions, the sim or any mini-game/dungeon logic; it found real bugs (e.g. negative squad plans).
+`npx tsx tools/sync-test.mjs` runs two-device cloud-sync scenarios against an in-memory server; run it after touching `src/cloud/`.
 - `tools/bot.js` is a greedy autoplay bot (jobs, floors, research, gear, squad, guardians, skills, perks, prestige on stall, Divine, Ascension + Celestial). It imports game modules with relative paths, so it runs both in Node via `tsx` (preferred: unaffected by Vite reloads) and in the dev page (`await import('/tools/bot.js')`).
 - Current targets and measured bot timings are in DESIGN.md §5 ("Pacing targets"). A real player is ~2–3× slower than the bot.
 - Long sims take minutes: run them in the background and redirect output to a file. Editing source files reloads the dev page (Vite), which kills any sim running there.
@@ -61,6 +62,17 @@ TypeScript + Vite, no framework. Canvas for the mine and battle views; DOM (rebu
 - **`src/main.ts`** — boot, rAF loop (advance → render → 4 Hz UI → 10 s autosave), visibility handling (save on hide, offline catch-up on return), update checks, service worker (`public/sw.js`: network-first pages, cache-first hashed assets, never caches `version.json`).
 
 Key flows: tabs/features unlock progressively (Battle after building a Barracks; Divine after defeating the first guardian, which is also required to prestige; Games after the first prestige, one mini-game per prestige; Dungeons once Sir Stonejaw has ever fallen). Ascension (tier 2, `ascend()` in actions.ts) opens once any run reaches depth 145: it wipes the run, Favor and the Divine Tree for Godsparks spent on the Celestial Tree (`CELESTIAL`/`ASCEND` in defs.ts, read via `cel`/`celMult`/`celOn` in calc.ts). Guardians seal each of the 10 biome boundaries (the last one, the Dreaming Godling, only after an Ascension) and must be beaten in Battle before digging continues. A lost zone-boss fight puts the squad on `bossHold` (loops the zone) until the player taps Retry.
+
+## Cloud saves (accounts + auto-sync)
+
+- Backend: a Supabase project owned by the owner. `src/cloud/config.ts` holds its URL and anon key (both public by design; row-level security restricts each player to their own rows). Empty values = cloud saves off (Menu says so). Database setup: paste `supabase/setup.sql` into Supabase → SQL Editor. In Authentication → Email, **"Confirm email" must be off** (usernames map to fake addresses `name@players.garebear72.github.io`; no mail is ever sent).
+- `src/cloud/sync.ts` is the server-independent core: per slot each device stores the cloud `rev` it last saw plus `dirty`/`playedAt` (set only by real player input via `onInput` in `game/input.ts`; idle progress never marks a save changed). `decide()` → nothing / push / pull / ask / pushOver. Uploads go through the `put_save` SQL function, which refuses a stale `expected` rev (`ConflictError`), so devices can't overwrite each other; a conflict re-checks once, then asks the player (or "Always use the latest save" picks whoever played last). Barely-started games (<60 s, depth 0) never count as progress, so a new device can't overwrite the cloud with a blank game.
+- `src/cloud/index.ts` wires it in: syncs at boot, every 30 s while dirty, on hide (upload) and on return (check for newer); a pulled save is loaded then caught up from its `savedAt` (offline report). `src/ui/cloudPanel.ts`: Menu section, top-bar chip, "Two versions of your save" modal (can't be dismissed by tapping outside; closing it changes nothing and it asks again later).
+- Dev testing without Supabase: open the dev server with `?fakecloud` — an in-memory server (`window.fakeServer`) stands in.
+
+## PC layouts
+
+`src/ui/layout.ts` picks phone / wide (≥980 px: panel docked right with tabs on top and a live battle strip) / xwide (≥1440 px: the Battle screen gets its own middle column) from the window size and Menu → Screen layout (Auto/Phone/Wide). In docked layouts `ui.tab` is never null (defaults to Colony), the Mine tab is hidden (and Battle in xwide), and mini-games/dungeons float in a phone-sized window (`#arcadeBack` closes it). Mouse wheel scrolls the mine; keys: Space/Enter dig, 1–9 tabs, Esc back, arrows/PageUp/PageDown scroll, Home = dig front. The mine canvas sizes itself from CSS (`clientWidth`) and taps use canvas-relative coordinates.
 
 ## Working with the owner
 

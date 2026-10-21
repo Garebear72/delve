@@ -16,6 +16,9 @@ import { icon } from '../render/sprites';
 import { fmt, fmtRate, fmtTime } from './format';
 import { prefs, savePrefs } from './prefs';
 import { applyLayout, docked, layout } from './layout';
+import { cloud, cloudBackend, CloudUI } from '../cloud';
+import { validUsername } from '../cloud/backend';
+import { cloudChip, cloudSection, conflictModal } from './cloudPanel';
 import { skillsPanel, unspentPoints } from './skillsPanel';
 import type { SkillId } from '../data/skills';
 import { buyPerk, learn, reconcileTrees, respecPerks, respecTrees, skillLevel, toggleEquip, xpForLevel } from '../game/skills';
@@ -60,7 +63,8 @@ export function buildShell() {
   $('jump').addEventListener('click', () => mine.jumpToFront());
   $('pip').addEventListener('click', () => openTab('battle'));
   $('topbar').addEventListener('click', closeSheet);
-  $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
+  // (The cloud "which save?" question can't be dismissed by tapping outside: it needs an answer.)
+  $('modal').addEventListener('click', (e) => { if (e.target === $('modal') && modal !== 'cloud') closeModal(); });
   // On big screens mini-games float in a window: clicking outside it steps back out.
   $('arcadeBack').addEventListener('click', () => openGame(null));
   $('strip').addEventListener('click', () => openTab('battle'));
@@ -259,6 +263,8 @@ function showModal(kind: string, html: string) {
 }
 function closeModal(fromHistory = false) {
   if (!modal) return;
+  // Closing the cloud question without answering changes nothing; sync asks again later.
+  if (modal === 'cloud' && pendingAsk) { pendingAsk.reject(new Error('not answered')); pendingAsk = null; }
   modal = null;
   $('modal').classList.add('hidden');
   if (!fromHistory && history.state?.delve === 'modal') { ignorePops++; history.back(); }
@@ -281,6 +287,49 @@ export function showOffline(rep: OfflineReport) {
   const capped = rep.simulated < rep.away ? `<p class="sub">Only ${fmtTime(rep.simulated)} counted (offline limit). The Long Memory blessing raises it.</p>` : '';
   showModal('offline', `<h2>Welcome back, Digging God!</h2><p>You were away for <b>${fmtTime(rep.away)}</b>. Your colony kept busy:</p>${lines}${extra}${skills ? `<h3>Skills</h3>${skills}` : ''}${capped}
     <div class="center"><button class="btn epic" data-act="closeModal">Lovely</button></div>`);
+}
+
+// ---------------------------------------------------------------- cloud saves
+let cloudBusy = false;
+let cloudError = '';
+let pendingAsk: { resolve: (v: 'local' | 'cloud') => void; reject: (e: Error) => void } | null = null;
+
+/** What the cloud module needs from the UI: ask which save to keep, and say when a cloud save was loaded. */
+export const cloudUI: CloudUI = {
+  ask(local, c) {
+    return new Promise((resolve, reject) => {
+      pendingAsk = { resolve, reject };
+      showModal('cloud', conflictModal(local, c));
+    });
+  },
+  loaded(c, report) {
+    mine.jumpToFront();
+    toast(`☁️ Loaded your newer save from ${c.device || 'the cloud'}.`, 'good');
+    if (report) showOffline(report);
+    render();
+  },
+};
+
+function cloudAnswer(choice: 'local' | 'cloud') {
+  const p = pendingAsk;
+  pendingAsk = null;
+  modal = 'answered'; // so closeModal doesn't treat this as a dismissal
+  closeModal();
+  p?.resolve(choice);
+}
+
+function cloudSignIn(create: boolean) {
+  if (!cloud) return;
+  const user = ($('cloudUser') as HTMLInputElement | null)?.value.trim() ?? '';
+  const pass = ($('cloudPass') as HTMLInputElement | null)?.value ?? '';
+  if (!validUsername(user)) { cloudError = 'Usernames are 3–20 letters, numbers or underscores.'; return; }
+  if (pass.length < 6) { cloudError = 'Passwords need at least 6 characters.'; return; }
+  cloudBusy = true; cloudError = '';
+  saveNow();
+  cloud.signIn(user, pass, create)
+    .then(() => { toast(create ? `☁️ Account created. Welcome, ${user}!` : `☁️ Signed in as ${user}.`, 'good'); return cloud!.sync(store.slot); })
+    .catch((e: Error) => { cloudError = e.message || 'Could not reach the cloud. Check your connection.'; })
+    .finally(() => { cloudBusy = false; render(); });
 }
 
 // ---------------------------------------------------------------- button handling
@@ -383,6 +432,7 @@ function act(name: string, arg: string) {
       saveNow();
       const rep = openSlot(Number(arg));
       toast(`Now playing: slot ${arg}`, 'good');
+      cloud?.sync(store.slot);
       ui.exportText = '';
       mine.jumpToFront();
       if (rep) showOffline(rep);
@@ -432,6 +482,23 @@ function act(name: string, arg: string) {
       return;
     }
     case 'layout': prefs.layout = arg as 'auto' | 'phone' | 'wide'; savePrefs(); applyLayout(); onLayoutChange(); toast(`Layout: ${arg}`, 'good'); break;
+    case 'cloudLogin': cloudSignIn(false); break;
+    case 'cloudSignup': cloudSignIn(true); break;
+    case 'cloudSync': cloud?.sync(store.slot).then(() => render()); break;
+    case 'cloudLatest': if (cloud) cloud.alwaysLatest = !cloud.alwaysLatest; break;
+    case 'cloudUse': cloudAnswer('cloud'); return;
+    case 'cloudKeep': cloudAnswer('local'); return;
+    case 'cloudLogout':
+      if (cloud && confirm('Log out of cloud saves on this device? Your save stays here and in the cloud.')) {
+        cloud.signOut().then(() => { toast('Logged out of cloud saves.', 'good'); render(); });
+      }
+      break;
+    case 'cloudPassword': {
+      const pass = prompt('New password (6+ characters):');
+      if (pass && pass.length >= 6 && cloudBackend) cloudBackend.changePassword(pass).then(() => toast('Password changed.', 'good'), (e: Error) => toast(e.message, 'bad'));
+      else if (pass) toast('Passwords need at least 6 characters.', 'bad');
+      break;
+    }
     case 'vibrate': prefs.vibrate = !prefs.vibrate; savePrefs(); if (prefs.vibrate) navigator.vibrate?.(20); break;
     case 'sound': prefs.sound = !prefs.sound; savePrefs(); unlockAudio(); sfx('good'); break;
     case 'volume': prefs.volume = Number(arg); savePrefs(); setVolume(prefs.volume); sfx('coin'); break;
@@ -510,7 +577,7 @@ export function render() {
     case 'divine': html = divinePanel(s, d); break;
     case 'book': html = bookPanel(s, d, ui); break;
     case 'games': html = gamesPanel(s); break;
-    case 'settings': html = settingsPanel(s, d, ui); break;
+    case 'settings': html = cloudSection(cloudBusy, cloudError) + settingsPanel(s, d, ui); break;
     case 'build': html = buildPanel(s, d, ui); break;
     case 'floor': html = floorPanel(s, d, ui); break;
   }
@@ -520,7 +587,8 @@ export function render() {
   }
   if (ui.game) morphdom($('arcade'), `<div id="arcade">${arcadeView(s, ui.game as GameId | 'dungeon', arcade)}</div>`, { onBeforeElUpdated: (from) => from.tagName !== 'CANVAS' });
   morphdom(panel, `<div id="panel">${html}</div>`, {
-    onBeforeElUpdated: (from) => !(from.tagName === 'CANVAS' || (from as HTMLElement).dataset?.keep === '1' && from === document.activeElement),
+    // Canvases draw themselves; text inputs keep what the player typed.
+    onBeforeElUpdated: (from) => !(from.tagName === 'CANVAS' || (from as HTMLElement).dataset?.keep === '1'),
   });
 }
 
@@ -540,6 +608,8 @@ function renderTop() {
   if (s.meta.favor > 0 || s.meta.prestiges > 0) chips.push(`<div class="chip">${icon('i_favor')}<b>${fmt(s.meta.favor)}</b></div>`);
   if (s.meta.totalSparks > 0) chips.push(`<div class="chip">✨<b>${fmt(s.meta.sparks)}</b></div>`);
   if (store.speed !== 1) chips.push(`<div class="chip dev">×${store.speed}</div>`);
+  const cc = cloudChip();
+  if (cc) chips.push(cc);
   morphdom($('topbar'), `<div id="topbar">${chips.join('')}</div>`);
 }
 

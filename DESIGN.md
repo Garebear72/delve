@@ -285,6 +285,8 @@ Ideas for later activities:
 
 **v0.4** — Ascension (tier-2 prestige): Godsparks, the 9-node Celestial Tree (multipliers, Running Start, Forced March, Auto-Research, Auto-Retry), Star-Touched Moles and Twinkle, the Astral Undercroft biome and the Dreaming Godling, 5 achievements; the bot ascends.
 
+**v0.5** — PC support (Auto/Phone/Wide layouts, docked panels, battle strip, three-column extra-wide view, contained mini-game window, mouse wheel and keyboard) and cloud saves (username + password accounts on Supabase, automatic sync with revision checks, "which save?" prompt, optional "always use the latest save").
+
 **Next up (candidates)**
 - More cavern room types and events; Ancient Ruins biome with puzzle doors; special named workers.
 - Mini-game upgrades (Plinko auto-dropper, cart insurance) and in-game events in the arcade events strip.

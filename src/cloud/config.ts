@@ -1,0 +1,6 @@
+// Supabase project for cloud saves. Both values are safe to publish: the anon key only allows what the
+// database's row-level security permits (each player can read and write only their own saves).
+// Leave them empty to turn cloud saves off. Setup steps: supabase/setup.sql and CLAUDE.md ("Cloud saves").
+export const SUPABASE_URL = '';
+export const SUPABASE_ANON_KEY = '';
+export const cloudConfigured = () => !!(SUPABASE_URL && SUPABASE_ANON_KEY);

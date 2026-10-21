@@ -346,3 +346,13 @@ body.docked #toasts { z-index: 10; }
   .door:hover, .gamecard:hover { border-color: var(--gold); }
   #mine { cursor: pointer; }
 }
+
+/* cloud saves */
+.cloudform input {
+  font: inherit; font-size: 16px; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+  padding: 10px; width: 100%; user-select: text; -webkit-user-select: text;
+}
+.cloudform input:focus { outline: 2px solid var(--gold); }
+.btn.choice { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; white-space: normal; padding: 12px; }
+.cloudchip.error { background: #6b2a2a; }
+.cloudchip.busy { opacity: .75; }
