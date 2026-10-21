@@ -15,6 +15,10 @@ create table if not exists public.saves (
 
 alter table public.saves enable row level security;
 
+-- Signed-in players may use the table (row-level security below still limits them to their own rows).
+-- Needed when the project doesn't auto-expose new tables to the Data API (Supabase's recommended setting).
+grant select, insert, update on public.saves to authenticated;
+
 drop policy if exists "players read own saves" on public.saves;
 create policy "players read own saves" on public.saves for select using (auth.uid() = user_id);
 drop policy if exists "players write own saves" on public.saves;
