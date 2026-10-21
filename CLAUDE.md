@@ -71,6 +71,12 @@ Key flows: tabs/features unlock progressively (Battle after building a Barracks;
 - `src/cloud/index.ts` wires it in: syncs at boot, every 30 s while dirty, on hide (upload) and on return (check for newer); a pulled save is loaded then caught up from its `savedAt` (offline report). `src/ui/cloudPanel.ts`: Menu section, top-bar chip, "Two versions of your save" modal (can't be dismissed by tapping outside; closing it changes nothing and it asks again later).
 - Dev testing without Supabase: open the dev server with `?fakecloud` — an in-memory server (`window.fakeServer`) stands in.
 
+## Visitor stats (owner only)
+
+- `src/cloud/visits.ts` posts a `start` when the game opens and a `ping` (seconds on screen) every 2 min and on hide/pagehide (sendBeacon) to the Supabase Edge Function `visit` (`supabase/functions/visit/index.ts`). A return after 30+ min hidden starts a new visit. Off in dev unless the URL has `?track`.
+- The function adds IP (`x-forwarded-for`) and location (ip-api.com, fallback ipwho.is) and writes `public.visits` with the service role. Schema/RLS: `supabase/visits.sql` — nobody can write through the public API; only the account `garebear` (`is_delve_admin()`, `ADMIN_USER` in `config.ts`) can read. Rows are kept forever. The function must be deployed with JWT verification **off** (the game calls it without a token).
+- `admin.html` (+ `src/admin/`) is the log viewer: search, filters, group by IP, CSV export. It's a second Vite entry (`vite.config.ts`); `admin.html?fake` in dev shows sample rows. The Menu shows a "Visitor log" link when signed in as the admin.
+
 ## PC layouts
 
 `src/ui/layout.ts` picks phone / wide (≥980 px: panel docked right with tabs on top and a live battle strip) / xwide (≥1440 px: the Battle screen gets its own middle column) from the window size and Menu → Screen layout (Auto/Phone/Wide). In docked layouts `ui.tab` is never null (defaults to Colony), the Mine tab is hidden (and Battle in xwide), and mini-games/dungeons float in a phone-sized window (`#arcadeBack` closes it). Mouse wheel scrolls the mine; keys: Space/Enter dig, 1–9 tabs, Esc back, arrows/PageUp/PageDown scroll, Home = dig front. The mine canvas sizes itself from CSS (`clientWidth`) and taps use canvas-relative coordinates.

@@ -6,7 +6,7 @@ import { Backend, CloudSave, ConflictError } from './sync';
 // Supabase accounts are keyed by email; players only ever see a username. No email is ever sent
 // (email confirmation is switched off in the project), this address just has to look like one.
 const EMAIL_DOMAIN = 'players.garebear72.github.io';
-const toEmail = (user: string) => `${user.toLowerCase()}@${EMAIL_DOMAIN}`;
+export const toEmail = (user: string) => `${user.toLowerCase()}@${EMAIL_DOMAIN}`;
 const fromEmail = (email: string | undefined) => (email ?? '').split('@')[0] || null;
 
 /** Usernames: 3–20 letters, numbers or underscores. */

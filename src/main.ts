@@ -11,6 +11,7 @@ import { refresh, store } from './game/store';
 import { CombatView } from './render/combat';
 import { bindSounds } from './audio/hooks';
 import { startCloud } from './cloud';
+import { startVisitLog } from './cloud/visits';
 import { arcade, arcadeCanvas, cloudUI, battleCanvas, buildShell, createMine, frameUI, mine, pipCanvas, render, showOffline, ui } from './ui/ui';
 
 if (import.meta.env.DEV) (window as any).delve = store; // debugging handle in dev only
@@ -22,6 +23,7 @@ requestPersistence();
 render();
 if (report) showOffline(report);
 startCloud(cloudUI).catch(() => { /* offline or not configured: the game plays on locally */ });
+startVisitLog();
 
 const combat = new CombatView();
 bindSounds(() => ui.tab === 'battle');

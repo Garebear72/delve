@@ -1,5 +1,6 @@
 // Cloud save UI: the Menu section (sign in / account), the "which save?" question, and the status chip.
 import { cloud, cloudStatus, deviceName } from '../cloud';
+import { ADMIN_USER } from '../cloud/config';
 import type { CloudSave, LocalSave } from '../cloud/sync';
 import { esc, fmtTime } from './format';
 import { store } from '../game/store';
@@ -34,7 +35,8 @@ export function cloudSection(busy: boolean, error: string) {
       ${btn('Sync now', 'cloudSync', '', !busy, 'small')}</div>
     <div class="row"><div class="grow"><b>Always use the latest save</b><div class="sub">If your phone and PC both changed, keep whichever you played most recently, without asking. Off = ask me every time.</div></div>
       ${btn(cloud.alwaysLatest ? 'On' : 'Off', 'cloudLatest', '', true, cloud.alwaysLatest ? 'on' : '')}</div>
-    <div class="wrap">${btn('Change password', 'cloudPassword', '', !busy, 'small')}${btn('Log out', 'cloudLogout', '', !busy, 'small danger')}</div>`;
+    <div class="wrap">${btn('Change password', 'cloudPassword', '', !busy, 'small')}${btn('Log out', 'cloudLogout', '', !busy, 'small danger')}</div>
+    ${cloud.user.toLowerCase() === ADMIN_USER ? `<div class="wrap"><a class="btn small" href="./admin.html" target="_blank" rel="noopener">📊 Visitor log</a></div>` : ''}`;
 }
 
 /** Top-bar chip while signed in. */

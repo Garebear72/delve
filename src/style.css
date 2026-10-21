@@ -126,6 +126,7 @@ p { margin: 6px 0; line-height: 1.35; }
 }
 .btn:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 -1px 0 #0006; }
 .btn:disabled { opacity: .4; }
+a.btn { display: inline-block; text-decoration: none; }
 .btn.small { padding: 6px 9px; font-size: 13px; min-width: 34px; }
 .btn.on { background: #6b5a1e; color: var(--gold); }
 .btn.epic { background: #5b2f8a; color: #fff; }
