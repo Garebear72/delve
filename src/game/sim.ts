@@ -8,7 +8,7 @@ import { emit, toast } from './events';
 import { addXp, bonuses, isOffline, setOffline } from './skills';
 import { PERK_POINTS_PER_GUARDIAN, XP } from '../data/skills';
 import type { GameState } from './state';
-import { maybeFindCavern } from './dungeons';
+import { dungeonsOpen, maybeFindCavern } from './dungeons';
 
 const STEP = 0.25;
 
@@ -381,6 +381,10 @@ function checkProgress(s: GameState) {
   }
   for (const o of ORES) once(o.res, r.depth >= BIOMES[o.biome].from, `${RESOURCES[o.res].name}! Miners now haul up ${RESOURCES[o.res].name.toLowerCase()}.`);
   checkPatrons(s);
+  if (dungeonsOpen(s) && !s.meta.lifetime.dungeonsTold) {
+    s.meta.lifetime.dungeonsTold = 1;
+    toast('🕳️ Your miners hear echoes behind the walls... Hidden Caverns can now be found while digging past depth 10!', 'epic');
+  }
   // 'divine2': older builds set 'divine' at depth 8, which would hide this announcement on their saves.
   once('divine2', r.guardians.includes(0) && s.meta.prestiges === 0, 'The gods are watching… The Divine tab is open. You can now prestige!', 'epic');
   const g = blockingGuardian(s);

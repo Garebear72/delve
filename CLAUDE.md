@@ -25,7 +25,10 @@ Deploy = commit + `git push`, then confirm the Pages run:
 ```bash
 npx tsx tools/pacing.mjs 96 160     # autoplay bot for 96 game-hours (≤160 prestiges): per-run Favor, depth, zone, guardians (~2 min)
 npx tsx tools/dungeon-test.mjs 4    # play 4 h, then explore 200 Hidden Caverns at random: win rate, gold, Heirlooms
+npx tsx tools/fuzz.mjs 20000 6 0.05 # random actions on a fresh and a bot-grown save; checks invariants (no NaN/negative resources, workers ≤ colonists, saves round-trip)
+npx tsx tools/perf.mjs 40           # how long an 8 h offline catch-up takes on a deep save (keep it well under 1 s on desktop; phones are ~5× slower)
 ```
+Run the fuzz test after changing actions, the sim or any mini-game/dungeon logic; it found real bugs (e.g. negative squad plans).
 - `tools/bot.js` is a greedy autoplay bot (jobs, floors, research, gear, squad, guardians, skills, perks, prestige on stall, Divine). It imports game modules with relative paths, so it runs both in Node via `tsx` (preferred: unaffected by Vite reloads) and in the dev page (`await import('/tools/bot.js')`).
 - Current targets and measured bot timings are in DESIGN.md §5 ("Pacing targets"). A real player is ~2–3× slower than the bot.
 - Long sims take minutes: run them in the background and redirect output to a file. Editing source files reloads the dev page (Vite), which kills any sim running there.
