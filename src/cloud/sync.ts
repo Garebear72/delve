@@ -142,7 +142,9 @@ export class CloudSync {
     } catch (e) {
       // Someone else saved between our read and our write: look again (once) with the new cloud copy.
       if (e instanceof ConflictError && retry) return this.syncNow(slot, false);
-      this.hooks.status(e instanceof ConflictError ? 'Sync conflict, will retry' : 'Offline, will retry', 'error');
+      // Say what actually went wrong (a dropped connection reads "Failed to fetch"), so problems can be diagnosed.
+      const why = e instanceof ConflictError ? 'conflict' : String((e as Error)?.message ?? e).slice(0, 120);
+      this.hooks.status(/fetch|network/i.test(why) ? 'Offline, will retry' : `Sync failed: ${why}`, 'error');
       return 'error';
     }
   }
