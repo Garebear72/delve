@@ -1,5 +1,4 @@
--- Delve cloud saves. Paste this whole file into Supabase → SQL Editor → New query → Run.
--- One row per (player, save slot). Row-level security means each player can only touch their own rows.
+-- Delve cloud saves
 
 create table if not exists public.saves (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
@@ -25,7 +24,6 @@ drop policy if exists "players write own saves" on public.saves;
 create policy "players write own saves" on public.saves for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Store a save only if the cloud copy is still at the revision the device last saw.
--- Two devices can never silently overwrite each other: a stale upload fails with 'conflict'.
 create or replace function public.put_save(
   p_slot int, p_data text, p_expected int, p_device text, p_summary text, p_saved_at bigint
 ) returns int
