@@ -62,8 +62,8 @@ function decide(s, log, t) {
     const c = r.combat;
     const unlocked = defs.CLASS_IDS.filter((id) => defs.CLASSES[id].unlock(s));
     const planned = () => Object.values(c.plan).reduce((a, b) => a + b, 0);
-    // Rebalance the plan when classes unlock: 30% fighters, 20% clerics, 30% wizards.
-    if (!c.alive && planned() > 0) {
+    // Keep the plan at 30% fighters, 20% clerics, 30% wizards (recruits fill the rest).
+    if (planned() > 0) {
       const cap = d.squadCap;
       const target = { recruit: 0, fighter: 0, cleric: 0, wizard: 0 };
       const share = { fighter: 0.3, cleric: 0.2, wizard: 0.3 };
@@ -83,7 +83,8 @@ function decide(s, log, t) {
   const lib = r.floors.some((f) => f?.type === 'library');
   if (d.idle > spare) {
     const n = d.idle - spare;
-    const sch = lib ? Math.floor(n * 0.25) : 0;
+    const jobs = r.jobs.miner + r.jobs.farmer + r.jobs.scholar + n;
+    const sch = lib ? Math.max(0, Math.min(n, Math.floor(jobs * 0.2) - r.jobs.scholar)) : 0;
     if (sch) A.assignJob(s, 'scholar', sch);
     A.assignJob(s, 'miner', n - sch);
   }

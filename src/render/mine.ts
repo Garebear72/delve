@@ -55,6 +55,7 @@ export class MineView {
     public canvas: HTMLCanvasElement,
     private onTap: (level: number) => void,
     private onButton: (level: number) => void,
+    private onCavern: (depth: number) => void = () => {},
   ) {
     this.ctx = canvas.getContext('2d')!;
     this.resize();
@@ -107,6 +108,7 @@ export class MineView {
     const level = Math.floor((wy - SURF) / FH); // negative = above ground
     this.lastTap = { x, y: wy };
     if (level >= 0 && level < this.depth && this.hitButton(x, wy, level)) this.onButton(level);
+    else if (level >= 0 && this.caverns.includes(level + 1) && this.hitCavern(x, wy, level)) this.onCavern(level + 1);
     else this.onTap(level);
   }
 
@@ -116,6 +118,14 @@ export class MineView {
     const y = SURF + level * FH + (FH - BTN) / 2 + 1;
     return { x, y };
   }
+  /** A Hidden Cavern entrance sits just left of the row's button. */
+  private cavernSpot(level: number) { const b = this.button(level); return { x: b.x - BTN - 8, y: b.y }; }
+  private hitCavern(x: number, wy: number, level: number) {
+    const c = this.cavernSpot(level);
+    return x >= c.x - 6 && x <= c.x + BTN + 6 && wy >= c.y - 6 && wy <= c.y + BTN + 6;
+  }
+  private caverns: number[] = [];
+
   private hitButton(x: number, wy: number, level: number) {
     const b = this.button(level);
     return x >= b.x - 8 && x <= b.x + BTN + 8 && wy >= b.y - 6 && wy <= b.y + BTN + 6;
@@ -218,6 +228,7 @@ export class MineView {
 
     const first = Math.max(0, Math.floor((sy - SURF) / FH));
     const last = Math.min(r.depth + 8, Math.ceil((sy + h - SURF) / FH));
+    this.caverns = r.caverns;
     const walkers = this.walkerPlan(s, d);
     for (let i = first; i <= last; i++) {
       const y = SURF + i * FH - sy;
@@ -225,7 +236,10 @@ export class MineView {
       pat.setTransform(new DOMMatrix([1, 0, 0, 1, 0, -sy]));
       ctx.fillStyle = pat;
       ctx.fillRect(0, y, w, FH);
-      if (i < r.depth) this.drawFloor(s, i, y, t, walkers);
+      if (i < r.depth) {
+        this.drawFloor(s, i, y, t, walkers);
+        if (r.caverns.includes(i + 1)) this.drawCavern(i, t);
+      }
       else if (i === r.depth) this.drawFront(s, d, y, t, dt);
       else {
         ctx.fillStyle = `rgba(10,6,12,${Math.min(0.9, 0.5 + (i - r.depth) * 0.12)})`;
@@ -381,6 +395,18 @@ export class MineView {
       ctx.fillText(bm > 1 ? '▲' : '▼', rx + 9 + ctx.measureText(label).width, ry + 14);
     }
     this.drawButton(i, false, t);
+  }
+
+  /** A dark cave mouth with glowing eyes: tap it to explore the Hidden Cavern. */
+  private drawCavern(level: number, t: number) {
+    const { ctx } = this;
+    const c = this.cavernSpot(level);
+    const x = c.x, y = c.y - this.scrollY;
+    ctx.fillStyle = '#05030a';
+    ctx.beginPath(); ctx.moveTo(x, y + BTN); ctx.lineTo(x, y + 12); ctx.quadraticCurveTo(x + BTN / 2, y - 6, x + BTN, y + 12); ctx.lineTo(x + BTN, y + BTN); ctx.fill();
+    ctx.strokeStyle = `rgba(143,86,201,${0.6 + 0.4 * Math.sin(t * 3 + level)})`; ctx.lineWidth = 2; ctx.stroke();
+    const blink = Math.sin(t * 2 + level * 1.7) > -0.9;
+    if (blink) { ctx.fillStyle = '#fbf236'; ctx.fillRect(x + 11, y + 18, 3, 3); ctx.fillRect(x + 20, y + 18, 3, 3); }
   }
 
   /** Gold "+" on empty rows, a gear on built floors. Everything else in the mine digs when tapped. */

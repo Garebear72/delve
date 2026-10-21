@@ -1,10 +1,11 @@
 // The Games tab: mini-games (one unlocks per prestige) and the Curio collection.
-import { BOONS, BOON_IDS, BoonId, CART, CURIOS, CURIO_MAX, curioDesc, DICE, GameId, GAME_IDS, MINIGAMES, PLINKO, RARITIES } from '../data/minigames';
+import { BOONS, BOON_IDS, BoonId, CART, CURIOS, CURIO_MAX, CurioSource, curioDesc, DICE, GameId, GAME_IDS, MINIGAMES, PLINKO, RARITIES } from '../data/minigames';
 import {
   boon, cartStake, diceLuck, diceOpen, diceStake, freeSpinsLeft, gameOpen, gameUnlocked, plinkoCost, plinkoGold, VENUES, venueOpen, wheelCost, wheelOpen,
 } from '../game/minigames';
 import type { GameState } from '../game/state';
 import { icon } from '../render/sprites';
+import { dungeonView } from './dungeonPanel';
 import { fmt } from './format';
 
 const btn = (label: string, act: string, arg: string | number = '', on = true, cls = '') =>
@@ -47,7 +48,12 @@ function gameStatus(s: GameState, id: GameId) {
 }
 
 /** Full-screen view for one game. The header and the events strip are shared by every game. */
-export function arcadeView(s: GameState, id: GameId, ui: { lastBoon: string; spinning: boolean }) {
+export function arcadeView(s: GameState, id: GameId | 'dungeon', ui: { lastBoon: string; spinning: boolean }) {
+  if (id === 'dungeon') {
+    return `<div class="arcade-head"><button class="btn" data-act="closeGame">← Back</button><b class="grow">🕳️ Hidden Cavern</b>
+      <div class="chip">${icon('i_gold')}<b>${fmt(s.run.res.gold)}</b></div></div><div class="arcade-events" id="arcadeEvents"></div>
+      <div class="arcade-body">${dungeonView(s)}</div>`;
+  }
   const g = MINIGAMES[id];
   const found = Object.keys(CURIOS).filter((c) => CURIOS[c].game === id);
   const have = found.filter((c) => s.meta.curios[c]).length;
@@ -147,17 +153,19 @@ function wheelView(s: GameState, ui: { lastBoon: string; spinning: boolean }) {
     <div class="sub rules">One free spin every run. Extra spins cost Favor, doubling each time this run. Blessings last until you prestige.</div>`;
 }
 
-/** Every Curio of the unlocked games, found or not. */
-export function curioList(s: GameState) {
-  const games = new Set<GameId>(GAME_IDS.filter((id) => gameUnlocked(s, id)));
+const sourceName = (src: CurioSource) => (src === 'dungeon' ? 'Hidden Caverns' : MINIGAMES[src].name);
+
+/** Every Curio of the unlocked games (or, with `heirlooms`, every dungeon Heirloom), found or not. */
+export function curioList(s: GameState, heirlooms = false) {
+  const games = new Set<CurioSource>(heirlooms ? ['dungeon'] : GAME_IDS.filter((id) => gameUnlocked(s, id)));
   const ids = Object.keys(CURIOS).filter((id) => games.has(CURIOS[id].game));
   if (!ids.length) return '<div class="sub">Unlock a mini-game to start finding Curios.</div>';
   const found = ids.filter((id) => s.meta.curios[id]).length;
-  return `<div class="sub">${found} / ${ids.length} found · up to ${CURIO_MAX} copies of each count. Common ~1 in ${Math.round(1 / RARITIES.common.chance)}, Rare ~1 in ${Math.round(1 / RARITIES.rare.chance)}, Legendary ~1 in ${Math.round(1 / RARITIES.legendary.chance)} plays.</div>` +
+  return `<div class="sub">${found} / ${ids.length} found · up to ${CURIO_MAX} copies of each count. Common ~1 in ${Math.round(1 / RARITIES.common.chance)}, Rare ~1 in ${Math.round(1 / RARITIES.rare.chance)}, Legendary ~1 in ${Math.round(1 / RARITIES.legendary.chance)} ${heirlooms ? 'rolls (treasure, elites and bosses roll; bosses roll twice with better luck)' : 'plays'}.</div>` +
     ids.map((id) => {
       const c = CURIOS[id], n = s.meta.curios[id] ?? 0;
       const tag = `<span class="tag rar-${c.rarity}">${RARITIES[c.rarity].name}</span>`;
       return n ? `<div class="row">${icon('i_relic')}<div class="grow"><b>${c.name}</b> ${tag}<div class="sub">${c.flavor}</div><div class="sub">${curioDesc(c)} · now +${Math.round(c.value * Math.min(n, CURIO_MAX) * 100)}%</div></div><div class="right"><b>${Math.min(n, CURIO_MAX)}/${CURIO_MAX}</b></div></div>`
-        : `<div class="row locked"><div class="grow"><b>???</b> ${tag}<div class="sub">From ${MINIGAMES[c.game].name}.</div></div></div>`;
+        : `<div class="row locked"><div class="grow"><b>???</b> ${tag}<div class="sub">From ${sourceName(c.game)}.</div></div></div>`;
     }).join('');
 }

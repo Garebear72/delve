@@ -15,6 +15,8 @@ import { esc, fmt, fmtRate, fmtTime } from './format';
 import { prefs } from './prefs';
 import { gamesTabOpen } from '../game/minigames';
 import { curioList } from './gamesPanel';
+import { cavernsSection } from './dungeonPanel';
+import { dungeonsOpen } from '../game/dungeons';
 import { SKILLS, SKILL_IDS, TREE_MAX } from '../data/skills';
 import type { SkillId } from '../data/skills';
 import { abilitySlots, knowsAbility, rank, skillLevel, treePoints } from '../game/skills';
@@ -193,6 +195,7 @@ export function battlePanel(s: GameState, d: Derived, ui: UIState) {
     <canvas id="battle" class="battle"></canvas>
     <div>${abilities}</div>
     ${guardian}
+    ${cavernsSection(s)}
     ${c.bossHold && c.mode === 'zone' ? `<div class="guardian"><b>Zone ${c.zone} boss</b> beat your squad.<div class="sub">They're fighting this zone's monsters instead. Retry when you're stronger.</div>${btn('Retry boss', 'zoneBoss', '', true, 'epic')}</div>` : ''}
     <div class="row"><div class="grow"><b>${c.farm ? 'Staying in zone ' + c.zone : 'Pushing onward'}</b><div class="sub">${c.farm ? 'Repeat this zone for loot and gold.' : 'Advance after each zone boss.'}</div></div>${btn(c.farm ? 'Push on' : 'Stay here', 'farm')}</div>
     <h3>Squad <span class="sub">${planSize} / ${d.squadCap} · reforms in ${fmt(d.regroupTime)}s</span></h3>
@@ -269,7 +272,7 @@ export function prestigeModal(s: GameState, d: Derived, ui: UIState) {
 
 // ---------------------------------------------------------------- book
 export function bookPanel(s: GameState, d: Derived, ui: UIState) {
-  const tabs = [['ach', 'Achievements'], ['res', 'Resources'], ['items', 'Items'], ['relics', 'Relics'], ...(gamesTabOpen(s) ? [['curios', 'Curios']] : []), ['beasts', 'Bestiary'], ['stats', 'Stats']]
+  const tabs = [['ach', 'Achievements'], ['res', 'Resources'], ['items', 'Items'], ['relics', 'Relics'], ...(gamesTabOpen(s) ? [['curios', 'Curios']] : []), ...(dungeonsOpen(s) ? [['heirlooms', 'Heirlooms']] : []), ['beasts', 'Bestiary'], ['stats', 'Stats']]
     .map(([id, name]) => btn(name, 'bookTab', id, true, ui.bookTab === id ? 'on small' : 'small')).join('');
   const m = s.meta;
   let body = '';
@@ -297,6 +300,8 @@ export function bookPanel(s: GameState, d: Derived, ui: UIState) {
     }).join('');
   } else if (ui.bookTab === 'curios') {
     body = curioList(s);
+  } else if (ui.bookTab === 'heirlooms') {
+    body = curioList(s, true);
   } else if (ui.bookTab === 'beasts') {
     const entries = Object.entries(ENEMIES).map(([id, e]) => [id, e.name, e.sprite, e.pal] as const)
       .concat(GUARDIANS.map((g, i) => ['g' + i, g.name, g.sprite, g.pal] as const));

@@ -416,6 +416,16 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: 'gods', name: 'Pantheon Collector', desc: 'Unlock every god.', check: (s) => s.meta.gods.length >= Object.keys(GODS).length },
   { id: 'items500', name: 'Hoarder', desc: 'Collect 500 monster items in total.', check: (s) => lt(s, 'items') >= 500 },
   { id: 'relic5', name: 'Museum Curator', desc: 'Find 5 different relics.', check: (s) => s.meta.relicsFound.length >= 5 },
+  { id: 'cavern1', name: 'Hole in the Wall', desc: 'Find a Hidden Cavern.', check: (s) => lt(s, 'caverns') >= 1 },
+  { id: 'dungeon1', name: 'Dungeon Crawler', desc: 'Clear a Hidden Cavern.', check: (s) => lt(s, 'dungeons.cleared') >= 1 },
+  { id: 'dungeon10', name: 'Professional Adventurer', desc: 'Clear 10 Hidden Caverns.', check: (s) => lt(s, 'dungeons.cleared') >= 10 },
+  { id: 'dungeon50', name: 'The Caverns Fear You', desc: 'Clear 50 Hidden Caverns.', check: (s) => lt(s, 'dungeons.cleared') >= 50 },
+  { id: 'heirloom1', name: 'Family Treasure', desc: 'Find an Heirloom.', check: (s) => lt(s, 'heirlooms') >= 1 },
+  { id: 'plinko100', name: 'Pachinko Pro', desc: 'Drop 100 Plinko balls.', check: (s) => lt(s, 'plinko.drops') >= 100 },
+  { id: 'plinkoJack', name: 'Edge Lord', desc: 'Land a ×5 Plinko slot.', check: (s) => lt(s, 'plinko.jackpots') >= 1 },
+  { id: 'cartEnd', name: 'End of the Line', desc: 'Survive all four forks of a mine-cart ride.', check: (s) => lt(s, 'cart.finishes') >= 1 },
+  { id: 'cartCrash', name: 'Health and Safety Violation', desc: 'Crash a mine cart.', check: (s) => lt(s, 'cart.crashes') >= 1 },
+  { id: 'wheel10', name: 'Spin Doctor', desc: 'Spin the Wheel of the Gods 10 times.', check: (s) => lt(s, 'wheel.spins') >= 10 },
   { id: 'relicAll', name: 'Indiana Dwarf', desc: 'Find every relic.', check: (s) => s.meta.relicsFound.length >= Object.keys(RELICS).length },
 ];
 export const ACH_BONUS = 0.02; // +2% to all production per achievement

@@ -1,5 +1,5 @@
 // Mini-games: unlock rules, Goblin Dice, Plinko Ore Drop, Mine-Cart Gamble, Wheel of the Gods, and Curio drops.
-import { BOONS, BOON_IDS, BoonId, CART, CURIOS, CURIO_MAX, DICE, GameId, GAME_IDS, MINIGAMES, PLINKO, RARITIES, Rarity, WHEEL } from '../data/minigames';
+import { BOONS, BOON_IDS, BoonId, CART, CURIOS, CURIO_MAX, CurioSource, DICE, GameId, GAME_IDS, MINIGAMES, PLINKO, RARITIES, Rarity, WHEEL } from '../data/minigames';
 import { curioBonus, derive, div, goldMult } from './calc';
 import { emit, toast } from './events';
 import type { GameState } from './state';
@@ -204,7 +204,7 @@ export function wheelSpin(s: GameState): number {
 
 // ---------------------------------------------------------------- Curios
 /** One chance at a Curio from this game's pool, rarest first. Maxed Curios no longer drop. */
-export function rollCurio(s: GameState, game: GameId, luck = 1): string | null {
+export function rollCurio(s: GameState, game: CurioSource, luck = 1): string | null {
   for (const rarity of ['legendary', 'rare', 'common'] as Rarity[]) {
     if (Math.random() >= RARITIES[rarity].chance * luck) continue;
     const pool = Object.keys(CURIOS).filter((id) => CURIOS[id].game === game && CURIOS[id].rarity === rarity && (s.meta.curios[id] ?? 0) < CURIO_MAX);
@@ -219,8 +219,9 @@ export function rollCurio(s: GameState, game: GameId, luck = 1): string | null {
 export function giveCurio(s: GameState, id: string) {
   const n = (s.meta.curios[id] ?? 0) + 1;
   s.meta.curios[id] = n;
-  lifetime(s, 'curios', 1);
   const c = CURIOS[id];
-  toast(`${RARITIES[c.rarity].name} Curio: ${c.name}!${n > 1 ? ` (copy ${n}/${CURIO_MAX})` : ''}`, c.rarity === 'common' ? 'good' : 'epic');
+  const kind = c.game === 'dungeon' ? 'Heirloom' : 'Curio';
+  lifetime(s, c.game === 'dungeon' ? 'heirlooms' : 'curios', 1);
+  toast(`${RARITIES[c.rarity].name} ${kind}: ${c.name}!${n > 1 ? ` (copy ${n}/${CURIO_MAX})` : ''}`, c.rarity === 'common' ? 'good' : 'epic');
   emit('curio', id);
 }

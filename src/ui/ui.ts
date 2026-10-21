@@ -21,6 +21,7 @@ import { SKILLS, SKILL_IDS } from '../data/skills';
 import { markInput } from '../game/input';
 import { cartCashOut, cartFork, cartStart, diceCashOut, diceRoll, gamesTabOpen, gameUnlocked, plinkoDrop, wheelSpin } from '../game/minigames';
 import { ArcadeView } from '../render/arcade';
+import { chooseDoor, enterCavern, leaveDungeon } from '../game/dungeons';
 import type { GameId } from '../data/minigames';
 import { arcadeView, gamesPanel } from './gamesPanel';
 import {
@@ -99,6 +100,13 @@ export function createMine() {
       ui.armDemolish = -1;
       openTab(store.state.run.floors[level] ? 'floor' : 'build');
     },
+    // Tapping a Hidden Cavern's entrance explores it.
+    (depth) => {
+      const s = store.state;
+      if (s.run.dungeon) { openGame('dungeon'); return; }
+      if (!enterCavern(s, s.run.caverns.indexOf(depth))) { toast('Plan a squad in the Battle tab first: it becomes your party.', 'bad'); return; }
+      refresh(); openGame('dungeon');
+    },
   );
 }
 
@@ -120,7 +128,7 @@ export function openTab(tab: string | null, fromHistory = false) {
 
 /** Mini-games play in their own full-screen view on top of everything (except toasts and popups). */
 export function openGame(id: string | null, fromHistory = false) {
-  if (id && !gameUnlocked(store.state, id as GameId)) return;
+  if (id && (id === 'dungeon' ? !store.state.run.dungeon : !gameUnlocked(store.state, id as GameId))) return;
   const was = ui.game;
   ui.game = id;
   if (!fromHistory) {
@@ -246,6 +254,9 @@ function act(name: string, arg: string) {
     case 'cartFork': cartFork(s, arg as 'sturdy' | 'rickety'); break;
     case 'cartCash': cartCashOut(s); break;
     case 'wheelSpin': if (!arcade.spinning) wheelSpin(s); break;
+    case 'explore': if (enterCavern(s, Number(arg))) { openGame('dungeon'); return; } break;
+    case 'dungeonDoor': chooseDoor(s, Number(arg)); break;
+    case 'dungeonLeave': leaveDungeon(s); openGame(null); return;
     case 'openGame': openGame(arg); return;
     case 'closeGame': openGame(null); return;
     case 'gear': A.buyGearLevel(s, arg as 'w' | 'a'); break;
@@ -412,7 +423,7 @@ export function render() {
     case 'build': html = buildPanel(s, d, ui); break;
     case 'floor': html = floorPanel(s, d, ui); break;
   }
-  if (ui.game) morphdom($('arcade'), `<div id="arcade">${arcadeView(s, ui.game as GameId, arcade)}</div>`, { onBeforeElUpdated: (from) => from.tagName !== 'CANVAS' });
+  if (ui.game) morphdom($('arcade'), `<div id="arcade">${arcadeView(s, ui.game as GameId | 'dungeon', arcade)}</div>`, { onBeforeElUpdated: (from) => from.tagName !== 'CANVAS' });
   morphdom(panel, `<div id="panel">${html}</div>`, {
     onBeforeElUpdated: (from) => !(from.tagName === 'CANVAS' || (from as HTMLElement).dataset?.keep === '1' && from === document.activeElement),
   });

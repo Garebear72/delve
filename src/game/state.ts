@@ -61,6 +61,19 @@ export interface RunState {
   boons: Record<string, number>; // Wheel of the Gods blessings this run (stacks)
   wheelSpins: number; // spins taken this run (the first WHEEL.freeSpins are free)
   plinkoPeg: [number, number]; // Plinko's golden peg [row, column]
+  caverns: number[]; // depths of Hidden Caverns found and not yet explored
+  dungeon: DungeonState | null; // the cavern being explored, if any
+}
+
+export interface DungeonState {
+  depth: number; // where the cavern was found (sets the boss)
+  room: number; // rooms cleared (DUNGEON.rooms = boss room)
+  hp: number; maxHp: number;
+  doors: string[]; // room types behind this room's doors
+  gold: number; // gold found so far (already added to your gold)
+  found: string[]; // Heirlooms found this dungeon
+  log: string[]; // newest first
+  over: '' | 'won' | 'fled';
 }
 
 export interface CartState {
@@ -149,6 +162,8 @@ export function newRun(meta: MetaState, race: RaceId = 'dwarf', god: GodId = 'fo
     boons: {},
     wheelSpins: 0,
     plinkoPeg: [4, 4],
+    caverns: [],
+    dungeon: null,
   };
 }
 

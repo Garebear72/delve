@@ -70,8 +70,10 @@ export const RARITIES: Record<Rarity, { name: string; chance: number }> = {
 };
 export const CURIO_MAX = 5; // copies of one Curio that count; each copy adds its bonus again
 
-export interface CurioDef { name: string; flavor: string; effect: CurioEffect; value: number; rarity: Rarity; game: GameId }
-const curio = (game: GameId, rarity: Rarity, name: string, flavor: string, effect: CurioEffect, value: number): CurioDef =>
+/** Where a Curio drops: a mini-game, or 'dungeon' for Heirlooms (Curios found only in Hidden Caverns). */
+export type CurioSource = GameId | 'dungeon';
+export interface CurioDef { name: string; flavor: string; effect: CurioEffect; value: number; rarity: Rarity; game: CurioSource }
+const curio = (game: CurioSource, rarity: Rarity, name: string, flavor: string, effect: CurioEffect, value: number): CurioDef =>
   ({ name, flavor, effect, value, rarity, game });
 export const CURIOS: Record<string, CurioDef> = {
   // Goblin Dice
@@ -110,6 +112,16 @@ export const CURIOS: Record<string, CurioDef> = {
   pocketPantheon: curio('wheel', 'rare', 'Pocket Pantheon', 'Tiny gods in a tin. They argue all night.', 'luck', 0.1),
   divineMemo: curio('wheel', 'rare', 'Divine Memo', '"Re: the dwarves. Keep an eye on them."', 'xp', 0.05),
   pebbleSock: curio('wheel', 'legendary', "One of Pebble's Socks", 'Pebble has no feet. The mystery deepens.', 'all', 0.05),
+  // Heirlooms (Hidden Cavern dungeons only)
+  cavernMap: curio('dungeon', 'common', 'Faded Cavern Map', 'X marks the spot. There are forty Xs.', 'dig', 0.03),
+  goblinTorch: curio('dungeon', 'common', 'Goblin Torch', 'Burns with a smell best described as "goblin".', 'know', 0.03),
+  coinPurse: curio('dungeon', 'common', 'Moldy Coin Purse', 'The coins are fine. The purse has opinions.', 'gold', 0.03),
+  heroSandwich: curio('dungeon', 'common', 'Ancient Hero Sandwich', 'Left by a hero. Never finished. Never will be.', 'food', 0.03),
+  dragonTooth: curio('dungeon', 'rare', 'Dragon Tooth Dagger', 'Still remembers being a dragon. Bitey.', 'atk', 0.06),
+  trollHide: curio('dungeon', 'rare', 'Troll Hide Cloak', 'Regrows when torn. Also when not torn.', 'hp', 0.06),
+  treasureCompass: curio('dungeon', 'rare', 'Compass That Points to Treasure', 'Points at you, mostly. Flattering.', 'luck', 0.15),
+  sageScroll: curio('dungeon', 'rare', "Sage's Scroll", 'Contains all knowledge. In very small print.', 'xp', 0.06),
+  crownOfDepths: curio('dungeon', 'legendary', 'Crown of the Depths', 'Worn by the first Digging God. A bit dented.', 'all', 0.06),
 };
 
 export const CURIO_EFFECT_TEXT: Record<CurioEffect, string> = {

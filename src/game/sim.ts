@@ -8,6 +8,7 @@ import { emit, toast } from './events';
 import { addXp, bonuses, isOffline, setOffline } from './skills';
 import { PERK_POINTS_PER_GUARDIAN, XP } from '../data/skills';
 import type { GameState } from './state';
+import { maybeFindCavern } from './dungeons';
 
 const STEP = 0.25;
 
@@ -104,6 +105,7 @@ export function digCheck(s: GameState) {
     addXp(s, 'digging', XP.levelBase * Math.pow(XP.levelGrowth, r.depth));
     r.depth++;
     r.floors.push(null);
+    maybeFindCavern(s, r.depth);
     add(s, 'levels', 1);
     if (r.depth > s.meta.bestDepth) s.meta.bestDepth = r.depth;
     emit('dug', r.depth);

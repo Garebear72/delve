@@ -232,6 +232,11 @@ export function squadStats(s: GameState, comp = s.run.combat.squad) {
 }
 
 /** Enemy scaling: `early` per zone up to LATE_ZONE, then the gentler `late` rate. */
+/** A regular (non-boss) Expedition monster's HP and attack at a zone. */
+export const zoneMonster = (zone: number) => ({
+  hp: ENEMY_HP * zoneGrowth(zone - 1, ENEMY_HP_GROWTH, ENEMY_HP_LATE),
+  atk: ENEMY_ATK * zoneGrowth(zone - 1, ENEMY_ATK_GROWTH, ENEMY_ATK_LATE),
+});
 const zoneGrowth = (z: number, early: number, late: number) => Math.pow(early, Math.min(z, LATE_ZONE)) * Math.pow(late, Math.max(0, z - LATE_ZONE));
 
 function hash(a: number, b: number) {

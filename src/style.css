@@ -274,3 +274,19 @@ input[type=file] { margin: 8px 0; color: var(--sub); font: inherit; font-size: 1
 .gamecard .btn { flex-shrink: 0; }
 .arcade-canvas { width: 100%; height: 200px; display: block; border-radius: 10px; border: 3px solid #5a3a24; background: #2b2033; touch-action: manipulation; }
 .arcade-canvas.tall { height: min(46vh, 380px); }
+
+/* dungeons */
+.dungeon-head { display: flex; flex-direction: column; gap: 6px; }
+.rooms { display: flex; gap: 6px; justify-content: center; }
+.rooms .dot { width: 22px; height: 22px; border-radius: 50%; background: var(--panel2); border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 12px; }
+.rooms .dot.done { background: #2f5a24; border-color: var(--good); }
+.rooms .dot.here { border-color: var(--gold); box-shadow: 0 0 8px var(--gold); }
+.hpbar { position: relative; height: 20px; background: #3a1c24; border-radius: 6px; overflow: hidden; border: 2px solid var(--line); }
+.hpbar span { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#6abe30, #37946e); transition: width .3s; }
+.hpbar b { position: relative; display: block; text-align: center; font-size: 12px; line-height: 16px; }
+.doors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.door { font: inherit; color: var(--text); background: linear-gradient(#4a3424, #2e2016); border: 3px solid #5a3a24; border-radius: 40px 40px 6px 6px; padding: 14px 6px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; cursor: pointer; min-height: 150px; }
+.door:active { transform: scale(.97); border-color: var(--gold); }
+.door .dicon { font-size: 34px; }
+.door .sub { font-size: 11px; }
+.dlog { display: flex; flex-direction: column; gap: 3px; background: #0004; border-radius: 6px; padding: 8px; font-size: 13px; }
