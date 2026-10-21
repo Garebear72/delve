@@ -1,5 +1,3 @@
-// Visitor log (admin.html): the owner signs in with their cloud-save account and browses public.visits.
-// Row-level security (supabase/visits.sql) is what keeps everyone else out; this page just shows the rows.
 // Dev only: `admin.html?fake` shows made-up rows without signing in.
 import './admin.css';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -34,7 +32,7 @@ const dur = (s: number) => s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m
 const when = (t: number) => new Date(t).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 const flag = (cc: string | null) => cc && /^[A-Z]{2}$/i.test(cc) ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1a5 + c.charCodeAt(0))) : '🌐';
 
-/** Device, OS and browser from the user-agent string. Rough, but good enough to tell phones from PCs. */
+/** Device, OS and browser from the user-agent string.*/
 function parseUa(ua: string) {
   const bot = /bot|crawl|spider|slurp|headless|lighthouse|preview|curl|python|wget/i.test(ua);
   const os = /Android ([\d.]+)/.exec(ua)?.[0].replace(/(\d+)\..*/, '$1')
@@ -54,7 +52,7 @@ function toRow(v: Visit): Row {
   return r;
 }
 
-// ---- Data -------------------------------------------------------------------------------------------
+// ---- Data -----
 
 async function loadAll(): Promise<Visit[]> {
   if (fake) return fakeRows();
@@ -93,7 +91,7 @@ function fakeRows(): Visit[] {
 function loginView(msg = '') {
   app.innerHTML = `<form class="login" id="login">
     <h1>📊 Delve visitor log</h1>
-    <div class="sub">Sign in with the game's admin cloud-save account.</div>
+    <div class="sub">Sign in.</div>
     ${msg ? `<div class="warn">${esc(msg)}</div>` : ''}
     <input id="u" autocomplete="username" placeholder="Username" required>
     <input id="p" type="password" autocomplete="current-password" placeholder="Password" required>
@@ -112,7 +110,7 @@ function loginView(msg = '') {
 function shell(user: string) {
   app.innerHTML = `
     <div class="top">
-      <div><h1>📊 Delve visitor log</h1><div class="sub" id="status">Loading…</div></div>
+      <div><h1>📊 Delve Analytics</h1><div class="sub" id="status">Loading…</div></div>
       <div class="row">
         <span class="sub">Signed in as ${esc(user)}</span>
         <button id="reload">↻ Refresh</button>
@@ -215,7 +213,7 @@ function draw() {
     ['Countries', new Set(list.map((r) => r.country)).size], ['Avg time', dur(Math.round(total / (list.length || 1)))], ['Total time', dur(total)],
   ].map(([k, v]) => `<div class="card"><b>${v}</b><span class="sub">${k}</span></div>`).join('');
 
-  // Country chips count everything except the country filter itself, so you can switch between them.
+  // Country chips count everything except the country filter itself
   const byCountry = new Map<string, { n: number; cc: string | null }>();
   for (const r of rows) {
     if (!f.bots && r.bot) continue;
