@@ -222,7 +222,8 @@ export function divinePanel(s: GameState, d: Derived) {
     const lvl = div(s, x.id);
     const maxed = x.max !== undefined && lvl >= x.max;
     const cost = divineCost(s, x.id);
-    const now = x.mult && lvl ? ` Now ×${fmt(divMult(s, x.id))}.` : '';
+    const mul = divMult(s, x.id);
+    const now = x.mult && lvl ? ` Now ×${mul < 100 ? mul.toFixed(2) : fmt(mul)}.` : '';
     return `<div class="row"><div class="grow"><b>${x.name}</b> <span class="num">${lvl}${x.max ? '/' + x.max : ''}</span><div class="sub">${x.desc}${now}</div>
       ${maxed ? '' : `<span class="cost ${m.favor >= cost ? '' : 'short'}">${icon('i_favor')}${fmt(cost)}</span>`}</div>
       ${maxed ? '<span class="tag good">Max</span>' : btn('Bless', 'divine', x.id, m.favor >= cost)}</div>`;

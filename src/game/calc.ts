@@ -8,9 +8,12 @@ import { leftAlone } from './input';
 import { bonuses, equipped } from './skills';
 import type { GameState } from './state';
 
+const BIOME_OF: number[] = []; // biome index per level, filled in lazily (floorPower asks for it a lot)
 export function biomeIndexAt(level: number): number {
+  if (level >= 0 && BIOME_OF[level] !== undefined) return BIOME_OF[level];
   let idx = 0;
   for (let i = 0; i < BIOMES.length; i++) if (level >= BIOMES[i].from) idx = i;
+  if (level >= 0 && level < 100000) BIOME_OF[level] = idx;
   return idx;
 }
 export const biomeAt = (level: number) => BIOMES[biomeIndexAt(level)];
@@ -67,6 +70,10 @@ export function curioBonus(s: GameState, effect: CurioEffect): number {
   return b;
 }
 
+/** Neighbouring pairs that boost each other, both ways round, for quick lookups. */
+const ADJ: Partial<Record<FloorId, Set<FloorId>>> = {};
+for (const [a, b] of ADJACENCY) { (ADJ[a] ??= new Set()).add(b); (ADJ[b] ??= new Set()).add(a); }
+
 /** Combined strength of every floor of one type. */
 export function floorTotal(s: GameState, type: FloorId): number {
   let n = 0;
@@ -80,10 +87,10 @@ export function floorPower(s: GameState, i: number): number {
   if (!f) return 0;
   const biome = biomeAt(i).floorMult[f.type] ?? 1;
   let adj = 1;
-  for (const n of [i - 1, i + 1]) {
-    const o = s.run.floors[n];
-    if (o && ADJACENCY.some(([a, b]) => (a === f.type && b === o.type) || (b === f.type && a === o.type))) adj += 0.25;
-  }
+  const up = s.run.floors[i - 1], down = s.run.floors[i + 1];
+  const friends = ADJ[f.type];
+  if (up && friends?.has(up.type)) adj += 0.25;
+  if (down && friends?.has(down.type)) adj += 0.25;
   return f.level * biome * adj;
 }
 

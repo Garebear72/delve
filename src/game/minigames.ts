@@ -1,5 +1,5 @@
 // Mini-games: unlock rules, Goblin Dice, Plinko Ore Drop, Mine-Cart Gamble, Wheel of the Gods, and Curio drops.
-import { BOONS, BOON_IDS, BoonId, CART, CURIOS, CURIO_MAX, CurioSource, DICE, GameId, GAME_IDS, MINIGAMES, PLINKO, RARITIES, Rarity, WHEEL } from '../data/minigames';
+import { BOONS, BOON_IDS, BoonId, CART, CURIOS, CURIO_FATIGUE, CURIO_MAX, CurioSource, DICE, GameId, GAME_IDS, MINIGAMES, PLINKO, RARITIES, Rarity, WHEEL } from '../data/minigames';
 import { curioBonus, derive, div, goldMult } from './calc';
 import { emit, toast } from './events';
 import type { GameState } from './state';
@@ -23,15 +23,19 @@ export const gameOpen = (s: GameState, id: GameId) => gameUnlocked(s, id) && ven
 
 /** Curio luck from Curios and the Divine Tree, multiplied into every roll. */
 export const baseLuck = (s: GameState) => (1 + curioBonus(s, 'luck')) * (1 + 0.15 * div(s, 'fortune'));
+/** Each mini-game Curio found this run makes the next a little rarer, so marathon farming tapers off. */
+export const fatigue = (s: GameState) => Math.pow(CURIO_FATIGUE, s.run.curiosFound);
+/** All the luck a mini-game roll gets before game-specific bonuses. */
+export const gameLuck = (s: GameState) => baseLuck(s) * fatigue(s);
 
-/** Bets grow with this run's Expedition progress, like gold income does. */
-const zoneScale = (s: GameState) => Math.pow(DICE.stakeGrowth, Math.max(0, s.run.maxZone - 1));
+/** Bets grow with this run's Expedition progress and your gold bonuses, like gold income does. */
+const zoneScale = (s: GameState) => Math.pow(DICE.stakeGrowth, Math.max(0, s.run.maxZone - 1)) * goldMult(s);
 
 // ---------------------------------------------------------------- Goblin Dice
 export const hasTavern = (s: GameState) => hasFloor(s, 'tavern');
 export const diceOpen = (s: GameState) => gameOpen(s, 'dice');
 export const diceStake = (s: GameState) => Math.ceil(DICE.stakeBase * zoneScale(s));
-export const diceLuck = (s: GameState) => Math.pow(DICE.streakLuck, s.run.dice.streak) * baseLuck(s);
+export const diceLuck = (s: GameState) => Math.pow(DICE.streakLuck, s.run.dice.streak) * gameLuck(s);
 
 const d6 = () => 1 + Math.floor(Math.random() * 6);
 
@@ -73,8 +77,12 @@ export function diceCashOut(s: GameState): boolean {
 }
 
 // ---------------------------------------------------------------- Plinko Ore Drop
-export const plinkoCost = (s: GameState) => Math.max(PLINKO.minStone, Math.ceil(PLINKO.stoneShare * derive(s).caps.stone));
-export const plinkoGold = (s: GameState) => PLINKO.goldBase * zoneScale(s) * goldMult(s);
+export function plinkoCost(s: GameState) {
+  const d = derive(s);
+  const want = Math.max(PLINKO.minStone, PLINKO.stoneShare * d.caps.stone, PLINKO.stoneSeconds * d.rates.stone);
+  return Math.ceil(Math.min(want, d.caps.stone));
+}
+export const plinkoGold = (s: GameState) => PLINKO.goldBase * zoneScale(s);
 export interface PlinkoResult { aim: number; path: number[]; slot: number; mult: number; gold: number; golden: boolean }
 
 /** Move the golden peg to a random spot (row 1..rows-1, a column the ball can actually be in on that row). */
@@ -110,7 +118,7 @@ export function plinkoDrop(s: GameState, aim: number): PlinkoResult | null {
   if (golden) lifetime(s, 'plinko.golden', 1);
   const res = { aim: path[0], path, slot: lost ? -1 : pos, mult, gold, golden };
   emit('plinko', res);
-  rollCurio(s, 'plinko', (mult >= 5 ? PLINKO.edgeLuck : 1) * (golden ? PLINKO.goldenLuck : 1) * baseLuck(s));
+  rollCurio(s, 'plinko', (mult >= 5 ? PLINKO.edgeLuck : 1) * (golden ? PLINKO.goldenLuck : 1) * gameLuck(s));
   moveGoldenPeg(s);
   return res;
 }
@@ -140,7 +148,7 @@ export function cartFork(s: GameState, kind: 'sturdy' | 'rickety'): boolean {
   if (Math.random() < t.safe) {
     c.pot *= t.mult;
     c.step++;
-    c.luck *= t.luck * 1.25;
+    c.luck *= t.luck;
     emit('cart', 'safe');
     if (c.step >= CART.forks) endRide(s, 'end');
   } else {
@@ -167,11 +175,12 @@ function endRide(s: GameState, how: 'crash' | 'cashout' | 'end') {
     if (how === 'end') lifetime(s, 'cart.finishes', 1);
   }
   if (c.step > (s.meta.lifetime['cart.bestRide'] ?? 0)) s.meta.lifetime['cart.bestRide'] = c.step;
-  const luck = c.luck * baseLuck(s);
+  const luck = c.luck * gameLuck(s);
   c.pot = 0;
   c.result = how;
-  // Every fork survived was another chance at a Curio (luck grows along the ride).
-  for (let i = 0; i < Math.max(1, c.step); i++) rollCurio(s, 'cart', luck);
+  // One Curio roll per ride (luck grows with every fork survived), plus a bonus roll for reaching the end.
+  rollCurio(s, 'cart', luck);
+  if (how === 'end') rollCurio(s, 'cart', luck);
 }
 
 // ---------------------------------------------------------------- Wheel of the Gods
@@ -195,10 +204,10 @@ export function wheelSpin(s: GameState): number {
   const id = BOON_IDS[idx];
   if (id === 'curios') {
     const pools = GAME_IDS.filter((g) => gameUnlocked(s, g));
-    for (let i = 0; i < 3; i++) rollCurio(s, pools[Math.floor(Math.random() * pools.length)], 5 * baseLuck(s));
+    for (let i = 0; i < 3; i++) rollCurio(s, pools[Math.floor(Math.random() * pools.length)], 5 * gameLuck(s));
   } else if (id !== 'nothing') s.run.boons[id] = boon(s, id) + 1;
   emit('wheel', idx);
-  rollCurio(s, 'wheel', baseLuck(s));
+  rollCurio(s, 'wheel', gameLuck(s));
   return idx;
 }
 
@@ -222,6 +231,7 @@ export function giveCurio(s: GameState, id: string) {
   const c = CURIOS[id];
   const kind = c.game === 'dungeon' ? 'Heirloom' : 'Curio';
   lifetime(s, c.game === 'dungeon' ? 'heirlooms' : 'curios', 1);
+  if (c.game !== 'dungeon') s.run.curiosFound++;
   toast(`${RARITIES[c.rarity].name} ${kind}: ${c.name}!${n > 1 ? ` (copy ${n}/${CURIO_MAX})` : ''}`, c.rarity === 'common' ? 'good' : 'epic');
   emit('curio', id);
 }

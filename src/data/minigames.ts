@@ -25,8 +25,9 @@ export const PLINKO = {
   rows: 8, // peg rows; the ball steps one column left or right per row (off the sides = lost in the gutter)
   cols: 9, // drop columns = landing slots
   slots: [5, 2, 1, 0.5, 0.3, 0.5, 1, 2, 5], // gold multipliers per landing slot
-  stoneShare: 0.1, // each drop costs this share of your stone storage...
-  minStone: 20, // ...but at least this much
+  stoneShare: 0.1, // each drop costs this share of your stone storage, or `stoneSeconds` of stone production
+  stoneSeconds: 60, // if that's more (never more than your whole storage)...
+  minStone: 20, // ...and at least this much
   goldBase: 6, // gold per drop at ×1, scaled like gold income (×1.25 per zone cleared this run)
   edgeLuck: 3, // Curio luck when the ball lands in an outer (×5) slot
   goldenLuck: 3, // Curio luck when the ball passes the golden peg (it moves after every drop)
@@ -35,8 +36,8 @@ export const PLINKO = {
 // ---------------------------------------------------------------- Mine-Cart Gamble
 export const CART = {
   forks: 4, // forks per ride
-  sturdy: { safe: 0.8, mult: 1.2, luck: 1 }, // chance to survive the segment, pot ×, Curio luck per segment
-  rickety: { safe: 0.5, mult: 1.8, luck: 1.6 },
+  sturdy: { safe: 0.8, mult: 1.2, luck: 1.1 }, // chance to survive the segment, pot ×, Curio luck × per segment
+  rickety: { safe: 0.5, mult: 1.8, luck: 1.4 },
   stakeMult: 2, // a ride costs 2 Goblin Dice bets
 };
 
@@ -69,6 +70,7 @@ export const RARITIES: Record<Rarity, { name: string; chance: number }> = {
   legendary: { name: 'Legendary', chance: 1 / 3000 },
 };
 export const CURIO_MAX = 5; // copies of one Curio that count; each copy adds its bonus again
+export const CURIO_FATIGUE = 0.9; // mini-game Curio luck × this for every Curio already found this run (resets on prestige)
 
 /** Where a Curio drops: a mini-game, or 'dungeon' for Heirlooms (Curios found only in Hidden Caverns). */
 export type CurioSource = GameId | 'dungeon';

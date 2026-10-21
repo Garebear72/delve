@@ -1,7 +1,7 @@
 // The Games tab: mini-games (one unlocks per prestige) and the Curio collection.
 import { BOONS, BOON_IDS, BoonId, CART, CURIOS, CURIO_MAX, CurioSource, curioDesc, DICE, GameId, GAME_IDS, MINIGAMES, PLINKO, RARITIES } from '../data/minigames';
 import {
-  boon, cartStake, diceLuck, diceOpen, diceStake, freeSpinsLeft, gameOpen, gameUnlocked, plinkoCost, plinkoGold, VENUES, venueOpen, wheelCost, wheelOpen,
+  boon, cartStake, diceLuck, gameLuck, diceOpen, diceStake, freeSpinsLeft, gameOpen, gameUnlocked, plinkoCost, plinkoGold, VENUES, venueOpen, wheelCost, wheelOpen,
 } from '../game/minigames';
 import type { GameState } from '../game/state';
 import { icon } from '../render/sprites';
@@ -34,8 +34,10 @@ export function gamesPanel(s: GameState) {
     ? `<div class="row locked"><div class="grow"><b>🔒 ${MINIGAMES[next].built ? MINIGAMES[next].name : '???'}</b>
         <div class="sub">${MINIGAMES[next].built ? MINIGAMES[next].desc + ' ' : 'Something is being built in the dark. '}Unlocks at prestige ${MINIGAMES[next].prestiges}.</div></div></div>`
     : '';
+  const luck = gameLuck(s);
+  const luckLine = `<div class="sub">Curio luck right now: <b>×${luck.toFixed(2)}</b>${s.run.curiosFound ? ` (${s.run.curiosFound} found this run make the next a little rarer; resets when you prestige)` : ''}.</div>`;
   return `<h2>Games</h2><div class="sub">One new mini-game unlocks with each prestige. They can find <b>Curios</b>: rare, permanent treasures nothing else gives.</div>
-    ${cards}${teaser}<h3>Curios</h3>${curioList(s)}`;
+    ${luckLine}${cards}${teaser}<h3>Curios</h3>${curioList(s)}`;
 }
 
 function gameStatus(s: GameState, id: GameId) {
@@ -137,7 +139,7 @@ function cartView(s: GameState) {
   return `<canvas id="arcadeCanvas" class="arcade-canvas"></canvas>
     <p class="quip center">${quip}</p>${controls}
     <div class="sub rules">${CART.forks} forks per ride. Sturdy track is safer; rickety track pays more and builds more Curio luck.
-      Every fork you survive is another Curio roll when the ride ends. Bail out any time after the first fork.</div>`;
+      Every ride ends with a Curio roll, luckier for every fork survived; reach the end for a bonus roll. Bail out any time after the first fork.</div>`;
 }
 
 function wheelView(s: GameState, ui: { lastBoon: string; spinning: boolean }) {

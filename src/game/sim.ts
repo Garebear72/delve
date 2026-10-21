@@ -3,7 +3,7 @@ import {
   ABILITIES, AbilityId, ACHIEVEMENTS, BIOMES, BOSS_RELICS, CLASSES, CLASS_IDS, CRIT_CHANCE, ENEMIES, FLOORS, FLOOR_IDS, GUARDIANS, HEAL_PULSE,
   FOOD_PER_BIRTH, GODS, GodId, ITEMS, KILL_HEAL, MAX_VOLLEYS, ORES, RACES, RaceId, RELICS, RESOURCES, RES_IDS, STARVE_INTERVAL, ZONE_CELLS,
 } from '../data/defs';
-import { derive, Derived, enemyFor, enemyStats, goldMult, hasAbility, hasAutoCast, levelHp, squadStats } from './calc';
+import { blockingGuardian, derive, Derived, enemyFor, enemyStats, goldMult, hasAbility, hasAutoCast, levelHp, squadStats } from './calc';
 import { emit, toast } from './events';
 import { addXp, bonuses, isOffline, setOffline } from './skills';
 import { PERK_POINTS_PER_GUARDIAN, XP } from '../data/skills';
@@ -23,7 +23,7 @@ export function advance(s: GameState, seconds: number) {
 
 /** Fast-forward for offline time: bigger steps so hours simulate quickly. */
 export function catchUp(s: GameState, seconds: number) {
-  const step = Math.max(1, seconds / 20000);
+  const step = Math.max(1, seconds / 8000);
   let left = seconds;
   setOffline(true);
   try {
@@ -100,7 +100,7 @@ export function digCheck(s: GameState) {
   const r = s.run;
   while (r.dig >= levelHp(r.depth)) {
     // A guardian seals this level: leftover progress is lost rather than banked on the sealed level.
-    if (derive(s).blocked >= 0) { r.dig = 0; break; }
+    if (blockingGuardian(s) >= 0) { r.dig = 0; break; }
     r.dig -= levelHp(r.depth);
     addXp(s, 'digging', XP.levelBase * Math.pow(XP.levelGrowth, r.depth));
     r.depth++;
@@ -129,6 +129,9 @@ function spawnEnemy(s: GameState) {
 
 export function formSquad(s: GameState, d: Derived) {
   const c = s.run.combat;
+  // If the squad cap dropped below the plan (e.g. a Barracks was demolished), trim the plan, cheapest classes first.
+  let over = Object.values(c.plan).reduce((a, b) => a + b, 0) - d.squadCap;
+  for (const id of CLASS_IDS) { if (over <= 0) break; const cut = Math.min(over, c.plan[id]); c.plan[id] -= cut; over -= cut; }
   const size = Object.values(c.plan).reduce((a, b) => a + b, 0);
   s.run.pop -= size;
   c.squad = { ...c.plan };
@@ -143,7 +146,16 @@ export function formSquad(s: GameState, d: Derived) {
 /** Combat always advances in small steps, so long offline steps resolve the same way as live play. */
 const COMBAT_STEP = 0.25;
 function tickCombat(s: GameState, d: Derived, dt: number) {
+  sqCache = null; // squad stats only change within a tick when the squad forms/wipes or Battle Cry flips
   for (let left = dt; left > 1e-9; left -= COMBAT_STEP) combatStep(s, d, Math.min(COMBAT_STEP, left));
+}
+
+/** squadStats is costly (it walks floors, research and relics), so combat sub-steps share one result. */
+let sqCache: { squad: object; cry: boolean; v: ReturnType<typeof squadStats> } | null = null;
+function cachedSquad(s: GameState) {
+  const c = s.run.combat, cry = c.cry > 0;
+  if (!sqCache || sqCache.squad !== c.squad || sqCache.cry !== cry) sqCache = { squad: c.squad, cry, v: squadStats(s) };
+  return sqCache.v;
 }
 
 function combatStep(s: GameState, d: Derived, dt: number) {
@@ -170,7 +182,7 @@ function combatStep(s: GameState, d: Derived, dt: number) {
   }
 
   if (c.enemyHp <= 0) spawnEnemy(s);
-  const sq = squadStats(s);
+  const sq = cachedSquad(s);
 
   // Each class swings on its own timer. k soldiers of a class split into up to MAX_VOLLEYS
   // evenly spaced volleys, so a few soldiers hit one by one and big groups stay readable.
@@ -371,6 +383,6 @@ function checkProgress(s: GameState) {
   checkPatrons(s);
   // 'divine2': older builds set 'divine' at depth 8, which would hide this announcement on their saves.
   once('divine2', r.guardians.includes(0) && s.meta.prestiges === 0, 'The gods are watching… The Divine tab is open. You can now prestige!', 'epic');
-  const g = derive(s).blocked;
+  const g = blockingGuardian(s);
   if (g >= 0) once('guard' + g, true, `Something huge blocks the way down: ${GUARDIANS[g].name}. Defeat it in Battle!`, 'epic');
 }

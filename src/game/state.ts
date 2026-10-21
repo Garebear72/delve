@@ -61,6 +61,7 @@ export interface RunState {
   boons: Record<string, number>; // Wheel of the Gods blessings this run (stacks)
   wheelSpins: number; // spins taken this run (the first WHEEL.freeSpins are free)
   plinkoPeg: [number, number]; // Plinko's golden peg [row, column]
+  curiosFound: number; // mini-game Curios found this run (each lowers further Curio luck a little)
   caverns: number[]; // depths of Hidden Caverns found and not yet explored
   dungeon: DungeonState | null; // the cavern being explored, if any
 }
@@ -162,6 +163,7 @@ export function newRun(meta: MetaState, race: RaceId = 'dwarf', god: GodId = 'fo
     boons: {},
     wheelSpins: 0,
     plinkoPeg: [4, 4],
+    curiosFound: 0,
     caverns: [],
     dungeon: null,
   };

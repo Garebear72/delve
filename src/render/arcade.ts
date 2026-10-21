@@ -196,6 +196,8 @@ export class ArcadeView {
   private drawCart(ctx: CanvasRenderingContext2D, s: GameState, t: number, dt: number) {
     const { W, H } = this;
     const c = s.run.cart;
+    // After a reload mid-ride, jump the cart to where the ride actually is.
+    if (c.result === 'riding' && this.cartTarget !== c.step) { this.cartTarget = c.step; this.cartPos = c.step; }
     ctx.fillStyle = '#22302e'; ctx.fillRect(0, 0, W, H);
     // stalactites
     ctx.fillStyle = '#1b2422';

@@ -4,8 +4,10 @@ import { on } from '../game/events';
 import { sfx, unlockAudio } from './sfx';
 
 export function bindSounds(battleVisible: () => boolean) {
-  // Audio can only start after a user gesture; every tap also resumes it if the phone suspended it.
-  addEventListener('pointerdown', unlockAudio, { capture: true });
+  // Audio can only start inside a user gesture. On Android touch screens that's the finger lifting
+  // (pointerup / touchend / click), not pointerdown, so listen to all of them; each also resumes audio
+  // if the phone suspended it.
+  for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) addEventListener(ev, unlockAudio, { capture: true, passive: true });
 
   on('tap', (e: { combo: number; crit: boolean }) => sfx(e.crit ? 'crit' : 'tap', e.combo));
   on('tapBlocked', () => sfx('blocked'));

@@ -128,7 +128,8 @@ export function setPlan(s: GameState, cls: ClassId, delta: number) {
   const d = derive(s);
   const total = Object.values(c.plan).reduce((a, b) => a + b, 0);
   // Adding a soldier takes an idle colonist (they're reserved until the squad marches out).
-  const add = delta > 0 ? Math.min(delta, d.squadCap - total, c.alive ? Infinity : d.idle) : Math.max(delta, -c.plan[cls]);
+  // (Clamped at 0: if the cap dropped below the plan, e.g. a Barracks was demolished, "+" must not subtract.)
+  const add = delta > 0 ? Math.max(0, Math.min(delta, d.squadCap - total, c.alive ? Infinity : d.idle)) : Math.max(delta, -c.plan[cls]);
   if (!add) return false;
   c.plan[cls] += add;
   return true;
