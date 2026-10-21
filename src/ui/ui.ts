@@ -16,6 +16,7 @@ import { icon } from '../render/sprites';
 import { fmt, fmtRate, fmtTime } from './format';
 import { prefs, savePrefs } from './prefs';
 import { applyLayout, docked, layout } from './layout';
+import { bellChip, clearLog, Kind, logModal, markAllRead, notify, onLogChange } from './notify';
 import { cloud, cloudBackend, CloudUI } from '../cloud';
 import { validUsername } from '../cloud/backend';
 import { cloudChip, cloudSection, conflictModal } from './cloudPanel';
@@ -92,9 +93,15 @@ export function buildShell() {
     else if (ui.tab && !docked()) openTab(null, true);
   });
 
-  on('toast', ({ text, kind }) => toast(text, kind));
-  on('achievement', (a) => toast(`🏆 ${a.name}: ${a.desc} (+2% to everything)`, 'epic'));
-  on('loot', (id) => { if ((store.state.meta.collection[id] ?? 0) === 1) toast('New item for your collection!', 'good'); });
+  on('toast', ({ text, kind, sticky }) => notify(text, kind, { sticky }));
+  on('achievement', (a) => notify(`🏆 ${a.name}: ${a.desc} (+2% to everything)`, 'epic'));
+  on('loot', (id) => { if ((store.state.meta.collection[id] ?? 0) === 1) notify('New item for your collection!', 'good'); });
+  // Keep the 🔔 log up to date while it's open (and count what arrives meanwhile as read).
+  onLogChange(() => {
+    if (modal !== 'notifs') return;
+    markAllRead();
+    morphdom($('modalBox'), `<div id="modalBox">${logModal()}</div>`);
+  });
 }
 
 export let mine: MineView;
@@ -166,16 +173,8 @@ export function openGame(id: string | null, fromHistory = false) {
 }
 
 // ---------------------------------------------------------------- toasts & modals
-function toast(text: string, kind = 'info') {
-  const box = $('toasts');
-  const el = document.createElement('div');
-  el.className = 'toast ' + kind;
-  el.textContent = text;
-  box.appendChild(el);
-  while (box.children.length > 4) box.firstChild!.remove();
-  setTimeout(() => el.classList.add('out'), 3600);
-  setTimeout(() => el.remove(), 4000);
-}
+/** Quick feedback to a tap ("Saved!", "Not enough stone"): shown like any notification but not kept in the 🔔 log. */
+function toast(text: string, kind: Kind = 'info') { notify(text, kind, { log: false }); }
 
 export function closeSheet() { if (ui.tab && !docked()) openTab(null); }
 
@@ -425,6 +424,8 @@ function act(name: string, arg: string) {
       }
       return;
     case 'closeModal': closeModal(); break;
+    case 'notifs': { const html = logModal(); markAllRead(); showModal('notifs', html); break; } // unread ones stay highlighted this time
+    case 'notifsClear': clearLog(); break;
     case 'bookTab': ui.bookTab = arg; break;
     // saves
     case 'saveNow': if (saveNow()) toast('Saved!', 'good'); break;
@@ -610,6 +611,7 @@ function renderTop() {
   if (store.speed !== 1) chips.push(`<div class="chip dev">×${store.speed}</div>`);
   const cc = cloudChip();
   if (cc) chips.push(cc);
+  chips.push(bellChip());
   morphdom($('topbar'), `<div id="topbar">${chips.join('')}</div>`);
 }
 

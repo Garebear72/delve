@@ -12,4 +12,5 @@ export function emit(evt: string, payload?: any) {
   if (quiet && evt !== 'achievement') return;
   for (const fn of handlers[evt] ?? []) fn(payload);
 }
-export const toast = (text: string, kind: 'info' | 'good' | 'bad' | 'epic' = 'info') => emit('toast', { text, kind });
+/** A notification. Epic ones (and `sticky` ones) stay on screen until tapped; the rest fade. All land in the 🔔 log. */
+export const toast = (text: string, kind: 'info' | 'good' | 'bad' | 'epic' = 'info', sticky = false) => emit('toast', { text, kind, sticky });

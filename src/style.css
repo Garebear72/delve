@@ -216,15 +216,29 @@ input[type=file] { margin: 8px 0; color: var(--sub); font: inherit; font-size: 1
 .bonuslist { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; margin-bottom: 6px; font-size: 13px; }
 
 /* toasts */
-#toasts { position: absolute; top: 80px; left: 8px; right: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 9; pointer-events: none; align-items: center; }
+#toasts { position: absolute; top: calc(var(--top-h) + 10px); left: 8px; right: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 9; pointer-events: none; align-items: center; }
 .toast {
   background: #000d; border: 1px solid var(--line); padding: 8px 12px; border-radius: 6px; font-size: 13.5px; max-width: 420px;
-  animation: pop .25s ease-out; transition: opacity .4s, transform .4s;
+  animation: pop .25s ease-out; transition: opacity .3s, transform .3s; pointer-events: auto; cursor: pointer;
 }
 .toast.good { border-color: var(--good); }
 .toast.bad { border-color: var(--bad); }
 .toast.epic { border-color: var(--epic); background: #2a1640ee; }
+.toast.sticky { border-width: 2px; }
+.toast .times { color: var(--accent); }
+.toast .tapx { margin-left: 10px; opacity: .55; font-size: 12px; }
 .toast.out { opacity: 0; transform: translateY(-8px); }
+#toastMore { display: none; pointer-events: auto; cursor: pointer; background: #000c; border: 1px solid var(--line); border-radius: 12px; padding: 3px 10px; font-size: 12px; color: #bbb; }
+#toastMore.show { display: block; }
+.chip.bell { position: relative; margin-left: auto; cursor: pointer; color: inherit; font: inherit; }
+.chip.bell .badge { position: absolute; top: -6px; right: -6px; background: var(--bad); color: #fff; border-radius: 9px; min-width: 17px; height: 17px; font-size: 11px; font-weight: 800; line-height: 17px; text-align: center; padding: 0 3px; }
+.loglist { display: flex; flex-direction: column; gap: 5px; margin: 8px 0 12px; }
+.logrow { border-left: 3px solid var(--line); background: var(--panel2); padding: 6px 8px; border-radius: 4px; font-size: 13.5px; }
+.logrow .sub { font-size: 11px; }
+.logrow.good { border-left-color: var(--good); }
+.logrow.bad { border-left-color: var(--bad); }
+.logrow.epic { border-left-color: var(--epic); }
+.logrow.new { box-shadow: inset 0 0 0 1px var(--accent); }
 @keyframes pop { from { transform: scale(.85); opacity: 0; } }
 
 /* modal */
@@ -337,7 +351,9 @@ body.docked #arcade {
   inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(480px, 94vw); height: min(880px, 94vh);
   border: 3px solid var(--line); border-radius: 14px; box-shadow: 0 20px 60px #000c; z-index: 9;
 }
-body.docked #toasts { z-index: 10; }
+/* On PC, notifications sit bottom-right of the mine, above the "Dig front" button, newest at the bottom. */
+body.docked #toasts { z-index: 10; top: auto; left: auto; bottom: 62px; right: calc(var(--side-total) + 10px); width: 360px; align-items: flex-end; }
+body.docked .toast.out { transform: translateX(12px); }
 
 /* Mouse niceties */
 @media (hover: hover) {

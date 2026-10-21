@@ -45,7 +45,7 @@ export function addXp(s: GameState, id: SkillId, amount: number) {
   const after = skillLevel(s, id);
   if (after > before) {
     const pts = pointsAtLevel(id, after) - pointsAtLevel(id, before);
-    toast(`${SKILLS[id].icon} ${SKILLS[id].name} level ${after}!${pts ? ` +${pts} skill point${pts > 1 ? 's' : ''}` : ''}`, pts ? 'epic' : 'good');
+    toast(`${SKILLS[id].icon} ${SKILLS[id].name} level ${after}!${pts ? ` +${pts} skill point${pts > 1 ? 's' : ''}` : ''}`, pts ? 'epic' : 'good', true);
   }
 }
 
