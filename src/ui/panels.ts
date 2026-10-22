@@ -194,7 +194,7 @@ export function battlePanel(s: GameState, d: Derived, ui: UIState) {
   };
 
   return `
-    <canvas id="battle" class="battle"></canvas>
+    <div class="battlewrap"><canvas id="battle" class="battle"></canvas>${muteButton()}</div>
     <div>${abilities}</div>
     ${guardian}
     ${cavernsSection(s)}
@@ -313,6 +313,10 @@ export function prestigeModal(s: GameState, d: Derived, ui: UIState) {
 }
 
 // ---------------------------------------------------------------- book
+/** The little 🔇/🔊 toggle drawn over battle views; it switches all game sound. */
+export const muteButton = (id = '') =>
+  `<button ${id ? `id="${id}" ` : ''}class="mutebtn" data-act="sound" title="${prefs.sound ? 'Mute sound' : 'Turn sound on'}">${prefs.sound ? '🔊' : '🔇'}</button>`;
+
 export function bookPanel(s: GameState, d: Derived, ui: UIState) {
   const tabs = [['ach', 'Achievements'], ['res', 'Resources'], ['items', 'Items'], ['relics', 'Relics'], ...(gamesTabOpen(s) ? [['curios', 'Curios']] : []), ...(dungeonsOpen(s) ? [['heirlooms', 'Heirlooms']] : []), ['beasts', 'Bestiary'], ['stats', 'Stats']]
     .map(([id, name]) => btn(name, 'bookTab', id, true, ui.bookTab === id ? 'on small' : 'small')).join('');

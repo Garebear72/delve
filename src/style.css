@@ -374,3 +374,13 @@ body.docked .toast.out { transform: translateX(12px); }
 .cloudchip.error { background: #6b2a2a; }
 .cloudchip.busy { opacity: .75; }
 .slider { width: 100%; margin: 10px 0 4px; accent-color: var(--gold); height: 28px; cursor: pointer; }
+
+/* mute toggle over battle views */
+.battlewrap { position: relative; }
+.mutebtn {
+  position: absolute; left: 6px; bottom: 6px; width: 30px; height: 26px; padding: 0; border: 1px solid #fff3; border-radius: 6px;
+  background: #0009; color: #fff; font-size: 15px; line-height: 24px; cursor: pointer; z-index: 2;
+}
+.mutebtn:active { transform: scale(.94); }
+#pipMute { display: none; bottom: auto; width: 26px; height: 22px; font-size: 13px; line-height: 20px; z-index: 6; }
+#pipMute.show { display: block; }

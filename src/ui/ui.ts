@@ -55,6 +55,7 @@ export function buildShell() {
     <button id="jump" class="btn">⬇ Dig front</button>
     <button id="update" class="btn epic" data-act="applyUpdate">✨ Update available! Tap to update</button>
     <canvas id="pip"></canvas>
+    <button id="pipMute" class="mutebtn" data-act="sound"></button>
     <div id="sheet"><div id="handle"><span></span></div><div id="sheetBody"><div id="panel"></div></div></div>
     <nav id="tabs"></nav>
     <div id="toasts"></div>
@@ -723,6 +724,15 @@ export function frameUI() {
   $('strip').classList.toggle('show', strip);
   document.body.classList.toggle('has-strip', strip);
   document.documentElement.style.setProperty('--top-h', $('topbar').offsetHeight + 'px');
+  // Mute toggle in the bottom-left corner of whichever small battle view is showing.
+  const small = pipCanvas(), mute = $('pipMute');
+  mute.classList.toggle('show', !!small);
+  if (small) {
+    mute.style.left = small.offsetLeft + 4 + 'px';
+    mute.style.top = small.offsetTop + small.offsetHeight - 30 + 'px';
+    const icon = prefs.sound ? '🔊' : '🔇';
+    if (mute.textContent !== icon) { mute.textContent = icon; mute.title = prefs.sound ? 'Mute sound' : 'Turn sound on'; }
+  }
 }
 /** The canvas showing the full battle view: the Battle tab, or the battle column on very wide screens. */
 export const battleCanvas = () => (ui.tab === 'battle' || layout === 'xwide' ? (document.getElementById('battle') as HTMLCanvasElement | null) : null);
