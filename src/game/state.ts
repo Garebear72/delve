@@ -3,7 +3,7 @@ import type { AbilityId, ClassId, FloorId, GodId, JobId, RaceId, ResId } from '.
 import type { SkillId } from '../data/skills';
 import { CURIOS } from '../data/minigames';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2; // 2: soldiers are a job and stay in the colony
 
 export interface FloorSlot { type: FloorId; level: number }
 
@@ -204,6 +204,10 @@ export function migrate(raw: any): GameState {
   const fresh = newGame();
   // Saves from before Ascension existed: all Favor so far counts toward the first Ascension.
   if (raw?.meta && raw.meta.ascFavor === undefined) raw.meta.ascFavor = raw.meta.totalFavor ?? 0;
+  // Version 1 saves: a squad out fighting had left the colony. Soldiers now stay in it, so bring them home.
+  if ((raw?.v ?? 1) < 2 && raw?.run?.combat?.alive && raw.run.combat.squad) {
+    raw.run.pop = (raw.run.pop ?? 0) + Object.values(raw.run.combat.squad as Record<string, number>).reduce((a, b) => a + (b || 0), 0);
+  }
   const out = fill(raw, fresh) as GameState;
   out.v = SAVE_VERSION;
   sanitize(out);

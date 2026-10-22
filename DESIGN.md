@@ -83,7 +83,7 @@ Ideas for later biomes: Ancient Ruins (puzzle doors, lore), The Underdark, The C
 ## 4. Combat (the Expedition)
 
 - Trimps-style: zones of cells, one enemy per cell, boss at the end; your army fights automatically.
-- Army wiped → wait for reinforcements (barracks/breeding speed matters). The enemy that won is fully healed (a fresh one spawns).
+- **Soldiers are a job** (decided 2026-10-22): colonists in the squad plan stay soldiers and stay in the colony. A wiped squad is **knocked out**, not killed: it gets back up after the regroup time (20 s base, faster with Barracks, skills and research), so wipes never cost colonists or stall the Expedition. The enemy that won is fully healed (a fresh one spawns).
 - Losing to a zone boss → the squad loops that zone's normal monsters until the player taps "Retry boss". Losing to a guardian → back to zone fights; Challenge again manually.
 - **Watchable:** pixel squad marches, enemies stagger in, damage numbers, screen-filling bosses.
 - **Stats:** HP, attack, armor/block, crit, lifesteal, AoE, summons, etc.

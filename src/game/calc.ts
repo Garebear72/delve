@@ -2,7 +2,7 @@
 import { CURIOS, CURIO_MAX, CurioEffect } from '../data/minigames';
 import {
   AbilityId, ACH_BONUS, ADJACENCY, ASCEND, BIOMES, CELESTIAL, CLASSES, CLASS_IDS, ENEMIES, FLOOR_IDS, FloorId, ENEMY_ATK, ENEMY_ATK_GROWTH, ENEMY_HP, ENEMY_HP_GROWTH, FOOD_PER_COLONIST, GEAR, GROWTH_BASE, GROWTH_PER_POP, GUARDIANS, JobId,
-  CRIT_CHANCE, DEEP_FROM, DIVINE, ENEMY_ATK_LATE, ENEMY_HP_LATE, FAVOR_DEEP, FAVOR_ZONE, LATE_ZONE, LEVEL_HP, LEVEL_HP_DEEP, LEVEL_HP_GROWTH, RESOURCES, KILL_HEAL, ORES, RELICS, RelicEffect, RESEARCH, ResearchStat, RES_IDS, ResId, ZONE_CELLS,
+  CRIT_CHANCE, REGROUP_BASE, DEEP_FROM, DIVINE, ENEMY_ATK_LATE, ENEMY_HP_LATE, FAVOR_DEEP, FAVOR_ZONE, LATE_ZONE, LEVEL_HP, LEVEL_HP_DEEP, LEVEL_HP_GROWTH, RESOURCES, KILL_HEAL, ORES, RELICS, RelicEffect, RESEARCH, ResearchStat, RES_IDS, ResId, ZONE_CELLS,
 } from '../data/defs';
 import { leftAlone } from './input';
 import { bonuses, equipped } from './skills';
@@ -104,6 +104,9 @@ export function floorCostMult(s: GameState): number {
   return (s.run.research.includes('masonry') ? 0.75 : 1) * Math.max(0.2, 1 - bonuses(s).floorCost);
 }
 
+/** Soldiers in the squad plan. */
+export const planSize = (s: GameState) => Object.values(s.run.combat.plan).reduce((a, b) => a + b, 0);
+
 export interface Derived {
   floors: Record<FloorId, number>;
   globalMult: number;
@@ -178,11 +181,11 @@ export function derive(s: GameState): Derived {
   const bunk = (r.research.includes('bunkBeds') ? 6 : 4) + researchSum(s, 'bunk');
   const maxPop = Math.floor(6 + floors.bunk * bunk + 3 * div(s, 'fertile') + b.pop);
   const jobsTotal = r.jobs.miner + r.jobs.farmer + r.jobs.scholar;
-  // Colonists not in a job. Until the squad marches out, its planned members are reserved and not idle.
-  const free = Math.max(0, Math.floor(r.pop) - jobsTotal);
-  const planTotal = Object.values(r.combat.plan).reduce((a, b) => a + b, 0);
-  const reserved = r.combatUnlocked && !r.combat.alive ? Math.min(free, planTotal) : 0;
-  const idle = free - reserved;
+  // Soldiers are a job too: the colonists in the squad plan stay soldiers (and stay in the colony),
+  // even while knocked out. `reserved` = soldiers; `free` = `idle` = colonists with no job at all.
+  const reserved = r.combatUnlocked ? planSize(s) : 0;
+  const free = Math.max(0, Math.floor(r.pop) - jobsTotal - reserved);
+  const idle = free;
   // New dwarves per second: slow for a tiny colony, faster as it grows (Trimps-style breeding).
   const growth = (GROWTH_BASE + r.pop * GROWTH_PER_POP) * (1 + floors.tavern * 0.5) * divMult(s, 'fertile')
     * (r.god === 'snorg' ? 1.25 : 1) * (r.race === 'mole' ? 0.7 : 1) * (1 + relicBonus(s, 'growth')) * globalMult * pct(b.growth);
@@ -190,7 +193,7 @@ export function derive(s: GameState): Derived {
   return {
     floors, globalMult, maxPop, idle, free, reserved, caps, rates, jobRate, digPower, tapPower, growth,
     squadCap: 3 + Math.floor(floors.barracks * 3) + b.squadCap + researchSum(s, 'squadCap') + div(s, 'tactics'),
-    regroupTime: 5 / (1 + floors.barracks * 0.5) / pct(b.regroup) / researchMult(s, 'regroup'),
+    regroupTime: REGROUP_BASE / (1 + floors.barracks * 0.5) / pct(b.regroup) / researchMult(s, 'regroup'),
     gearCostMult: Math.max(0.2, 1 - b.gearCost) / (1 + floors.forge * 0.2),
     favorMult: (1 + floors.shrine * 0.15) * Math.pow(1.25, r.guardians.length) * (1 + b.favor) * researchMult(s, 'favor')
       * (1 + curioBonus(s, 'favor')) * (1 + 0.25 * boonOf(s, 'favor')) * celMult(s, 'starfire') * (r.god === 'twinkle' ? 1.5 : 1),

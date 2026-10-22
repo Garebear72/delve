@@ -4,7 +4,7 @@ import { gameForPrestige } from './minigames';
 import { CELESTIAL, CLASSES, ClassId, COMBO_MAX, COMBO_STEP, COMBO_WINDOW, DIVINE, FLOORS, FloorId, GEAR, GodId, JobId, JOBS, RaceId, RESEARCH, ResId, RELICS } from '../data/defs';
 import { canAscend, canPrestige, cel, derive, div, floorCostMult, pendingFavor, pendingSparks } from './calc';
 import { emit, toast } from './events';
-import { digCheck, add } from './sim';
+import { digCheck, add, fitSquadPlan } from './sim';
 import { addXp, bonuses, respecTrees } from './skills';
 import { TAP_CRIT_MULT, XP } from '../data/skills';
 import { markInput } from './input';
@@ -73,6 +73,7 @@ export function buildFloor(s: GameState, slot: number, type: FloorId) {
   addXp(s, 'colony', XP.build);
   if (type === 'barracks' && !s.run.combatUnlocked) {
     s.run.combatUnlocked = true;
+    fitSquadPlan(s, derive(s).squadCap); // the starting squad only takes colonists who are free
     toast('Monsters spotted in the side caverns! The Expedition (Battle tab) is open.', 'epic');
   }
   emit('built', slot);
@@ -127,9 +128,9 @@ export function setPlan(s: GameState, cls: ClassId, delta: number) {
   if (!CLASSES[cls].unlock(s)) return false;
   const d = derive(s);
   const total = Object.values(c.plan).reduce((a, b) => a + b, 0);
-  // Adding a soldier takes an idle colonist (they're reserved until the squad marches out).
+  // Soldiers are a job: adding one takes an idle colonist, who stays a soldier until you remove them.
   // (Clamped at 0: if the cap dropped below the plan, e.g. a Barracks was demolished, "+" must not subtract.)
-  const add = delta > 0 ? Math.max(0, Math.min(delta, d.squadCap - total, c.alive ? Infinity : d.idle)) : Math.max(delta, -c.plan[cls]);
+  const add = delta > 0 ? Math.max(0, Math.min(delta, d.squadCap - total, d.idle)) : Math.max(delta, -c.plan[cls]);
   if (!add) return false;
   c.plan[cls] += add;
   return true;

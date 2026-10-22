@@ -342,7 +342,7 @@ export class MineView {
       farm: per(r.jobs.farmer, 'farm'),
       library: per(r.jobs.scholar, 'library'),
       bunk: idleEach, tavern: idleEach,
-      barracks: Math.min(3, d.reserved),
+      barracks: s.run.combat.alive ? 0 : Math.min(3, d.reserved), // knocked-out soldiers recover in the Barracks
       forge: 1, storage: 1, shrine: 1,
     } as Record<string, number>;
   }

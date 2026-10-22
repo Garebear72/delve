@@ -176,6 +176,7 @@ export const ABILITIES: Record<AbilityId, { name: string; desc: string; duration
   cry: { name: 'Battle Cry', desc: 'Your squad deals double damage for 10s.', duration: 10, cooldown: 45 },
   wall: { name: 'Shield Wall', desc: 'Your squad takes 75% less damage for 8s.', duration: 8, cooldown: 60 },
 };
+export const REGROUP_BASE = 20; // seconds a knocked-out squad needs to get back up (Barracks and skills shorten it)
 export const MAX_VOLLEYS = 6; // big groups of one class swing in at most this many volleys
 export const HEAL_PULSE = 2; // seconds between healing pulses
 export const KILL_HEAL = 0.25; // share of max HP the squad recovers per enemy defeated (skills may raise this)

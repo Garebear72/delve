@@ -24,7 +24,8 @@ function check(s, label) {
   for (const [k, v] of Object.entries(r.res)) if (!Number.isFinite(v) || v < -1e-6) throw new Error(`${label}: res.${k} = ${v}`);
   if (!Number.isFinite(r.pop) || r.pop < 0) throw new Error(`${label}: pop = ${r.pop}`);
   const jobs = r.jobs.miner + r.jobs.farmer + r.jobs.scholar;
-  if (jobs > Math.floor(r.pop) + 1e-9) throw new Error(`${label}: ${jobs} workers but only ${r.pop} colonists`);
+  const soldiers = r.combatUnlocked ? Object.values(r.combat.plan).reduce((a, b) => a + b, 0) : 0;
+  if (jobs + soldiers > Math.floor(r.pop) + 1e-9) throw new Error(`${label}: ${jobs} workers + ${soldiers} soldiers but only ${r.pop} colonists`);
   for (const [k, v] of Object.entries(r.jobs)) if (v < 0 || !Number.isInteger(v)) throw new Error(`${label}: jobs.${k} = ${v}`);
   for (const [k, v] of Object.entries(r.combat.plan)) if (v < 0) throw new Error(`${label}: plan.${k} = ${v}`);
   if (!Number.isFinite(r.combat.enemyHp) || !Number.isFinite(r.combat.squadHp)) throw new Error(`${label}: combat NaN`);

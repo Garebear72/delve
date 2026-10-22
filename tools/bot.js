@@ -79,7 +79,7 @@ function decide(s, log, t) {
     d = calc.derive(s);
     // Keep a few spare colonists so wiped squads can re-form.
   }
-  const spare = r.combatUnlocked ? Math.ceil(d.squadCap * 0.5) : 0;
+  const spare = 0; // soldiers are a job: the squad plan already took its colonists above
   const lib = r.floors.some((f) => f?.type === 'library');
   if (d.idle > spare) {
     const n = d.idle - spare;
@@ -87,12 +87,6 @@ function decide(s, log, t) {
     const sch = lib ? Math.max(0, Math.min(n, Math.floor(jobs * 0.2) - r.jobs.scholar)) : 0;
     if (sch) A.assignJob(s, 'scholar', sch);
     A.assignJob(s, 'miner', n - sch);
-  }
-  // If the squad can't form because workers hold everyone, free up miners.
-  if (r.combatUnlocked && !r.combat.alive) {
-    const need = Object.values(r.combat.plan).reduce((a, b) => a + b, 0);
-    d = calc.derive(s);
-    if (d.free < need && r.jobs.miner > 2) A.assignJob(s, 'miner', -Math.min(r.jobs.miner - 2, need - d.free));
   }
 
   // Gear: alternate weapon and armour levels; forge tiers when possible.

@@ -3,7 +3,7 @@ import {
   ABILITIES, AbilityId, ACHIEVEMENTS, ASCEND, BIOMES, RESEARCH, BOSS_RELICS, CLASSES, CLASS_IDS, CRIT_CHANCE, ENEMIES, FLOORS, FLOOR_IDS, GUARDIANS, HEAL_PULSE,
   FOOD_PER_BIRTH, GODS, GodId, ITEMS, KILL_HEAL, MAX_VOLLEYS, ORES, RACES, RaceId, RELICS, RESOURCES, RES_IDS, STARVE_INTERVAL, ZONE_CELLS,
 } from '../data/defs';
-import { ascendOpen, blockingGuardian, celOn, derive, Derived, enemyFor, enemyStats, goldMult, guardianHp, hasAbility, hasAutoCast, levelHp, squadStats } from './calc';
+import { planSize, ascendOpen, blockingGuardian, celOn, derive, Derived, enemyFor, enemyStats, goldMult, guardianHp, hasAbility, hasAutoCast, levelHp, squadStats } from './calc';
 import { buyResearch } from './actions';
 import { emit, toast } from './events';
 import { addXp, bonuses, isOffline, setOffline } from './skills';
@@ -74,7 +74,7 @@ export function tick(s: GameState, d: Derived, dt: number) {
     r.starve += dt;
     if (r.starve >= STARVE_INTERVAL) {
       r.starve = 0;
-      // Unassigned colonists (including ones waiting to join the squad) leave before workers do.
+      // Colonists with no job leave first, then workers; soldiers last (fitSquadPlan below trims the squad plan).
       if (d.free < 1) {
         const job = (['scholar', 'miner', 'farmer'] as const).find((j) => r.jobs[j] > 0);
         if (job) r.jobs[job]--;
@@ -91,7 +91,7 @@ export function tick(s: GameState, d: Derived, dt: number) {
     digCheck(s);
   }
 
-  if (r.combatUnlocked) tickCombat(s, d, dt);
+  if (r.combatUnlocked) { fitSquadPlan(s, d.squadCap); tickCombat(s, d, dt); }
   r.combat.holdT = r.combat.bossHold ? r.combat.holdT + dt : 0;
 
   achTimer += dt;
@@ -135,13 +135,23 @@ function spawnEnemy(s: GameState) {
   // The enemy attack clock keeps running across spawns, so fast-killing squads still take hits.
 }
 
+/**
+ * Keep the squad plan possible: no bigger than the squad cap, and no more soldiers than colonists who
+ * aren't in another job (e.g. after starvation, demolishing a Barracks, or opening the Expedition).
+ * Trims the cheapest classes first.
+ */
+export function fitSquadPlan(s: GameState, squadCap: number) {
+  const r = s.run, c = r.combat;
+  if (!r.combatUnlocked) return;
+  const room = Math.max(0, Math.floor(r.pop) - (r.jobs.miner + r.jobs.farmer + r.jobs.scholar));
+  let over = planSize(s) - Math.min(squadCap, room);
+  for (const id of CLASS_IDS) { if (over <= 0) break; const cut = Math.min(over, c.plan[id]); c.plan[id] -= cut; over -= cut; }
+}
+
+/** The soldiers (a job, like Miners) march out. They stay part of the colony the whole time. */
 export function formSquad(s: GameState, d: Derived) {
   const c = s.run.combat;
-  // If the squad cap dropped below the plan (e.g. a Barracks was demolished), trim the plan, cheapest classes first.
-  let over = Object.values(c.plan).reduce((a, b) => a + b, 0) - d.squadCap;
-  for (const id of CLASS_IDS) { if (over <= 0) break; const cut = Math.min(over, c.plan[id]); c.plan[id] -= cut; over -= cut; }
-  const size = Object.values(c.plan).reduce((a, b) => a + b, 0);
-  s.run.pop -= size;
+  fitSquadPlan(s, d.squadCap);
   c.squad = { ...c.plan };
   c.alive = true;
   c.regroup = 0;
@@ -172,12 +182,8 @@ function combatStep(s: GameState, d: Derived, dt: number) {
   c.wall = Math.max(0, c.wall - dt); c.wallCd = Math.max(0, c.wallCd - dt);
 
   if (!c.alive) {
-    const size = Object.values(c.plan).reduce((a, b) => a + b, 0);
-    // Count free colonists live: d was computed before this tick's sub-steps, and an earlier
-    // sub-step may already have formed (and lost) a squad from them.
-    const r = s.run;
-    const free = Math.floor(r.pop) - (r.jobs.miner + r.jobs.farmer + r.jobs.scholar);
-    if (size > 0 && free >= size) {
+    // Knocked out (or not yet formed): the soldiers get back on their feet after the regroup time.
+    if (planSize(s) > 0) {
       c.regroup += dt;
       if (c.regroup >= d.regroupTime) formSquad(s, d);
     } else c.regroup = 0;
@@ -244,12 +250,12 @@ function wipe(s: GameState) {
   // Whatever won keeps no damage: the next squad faces a fresh enemy.
   c.enemyHp = 0;
   if (c.mode === 'guardian') {
-    toast(`${GUARDIANS[c.guardian].name} was too much. Your squad got bonked. Challenge it again when you're ready.`, 'bad');
+    toast(`${GUARDIANS[c.guardian].name} knocked your squad out cold. Challenge it again when you're ready.`, 'bad');
     c.mode = 'zone'; c.guardian = -1;
   } else if (c.cell === ZONE_CELLS - 1) {
     c.bossHold = true; c.cell = 0;
-    toast(`The zone ${c.zone} boss bonked your squad. They'll fight this zone's monsters until you retry the boss.`, 'bad');
-  } else toast('Your squad got bonked! Regrouping…', 'bad');
+    toast(`The zone ${c.zone} boss knocked your squad out. They'll fight this zone's monsters until you retry the boss.`, 'bad');
+  } else toast('Your squad got knocked out! They\'ll be back on their feet soon.', 'bad');
   emit('wipe');
 }
 
