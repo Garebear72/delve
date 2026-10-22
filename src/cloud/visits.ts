@@ -1,17 +1,21 @@
 // Visitor log: tells the `visit` Edge Function (supabase/functions/visit) when someone opens the game and,
-// roughly every 2 minutes and on leaving, how long it has been on screen. The function adds IP and location.
+// after 10 s, 30 s and 1 min on screen, then every 2 minutes, and on leaving, how long it has been on screen. The function adds IP and location.
 // The owner reads the log on admin.html. Off in dev unless the page is opened with `?track`.
 import { cloud } from '.';
 import { cloudConfigured, SUPABASE_URL } from './config';
 
 const ENDPOINT = `${SUPABASE_URL}/functions/v1/visit`;
-const PING_EVERY = 120_000;     // ms between heartbeats while the game is on screen
+// Heartbeats at these seconds on screen, then every 2 minutes. The early ones give short visits a time even
+// when the browser drops the message sent on leaving (common on phones).
+const EARLY = [10, 30, 60];
+const PING_EVERY = 120;
 const NEW_VISIT_AFTER = 1800_000; // hidden this long (ms) = the next return counts as a new visit
 
 let id = '';
 let shown = 0;   // seconds on screen before the current stretch
 let since = 0;   // when the current on-screen stretch began (ms), 0 while hidden
 let hiddenAt = 0;
+let next = EARLY[0]; // seconds on screen at which the next heartbeat is due
 
 const onScreen = () => Math.round(shown + (since ? (Date.now() - since) / 1000 : 0));
 
@@ -28,6 +32,7 @@ function begin() {
   id = crypto.randomUUID();
   shown = 0;
   since = Date.now();
+  next = EARLY[0];
   send({
     t: 'start',
     screen: `${screen.width}×${screen.height}`,
@@ -44,7 +49,12 @@ export function startVisitLog() {
   if (!('randomUUID' in crypto)) return;
   begin();
   if (document.hidden) { shown = 0; since = 0; hiddenAt = Date.now(); }
-  setInterval(() => { if (since) send({ t: 'ping', dur: onScreen() }); }, PING_EVERY);
+  setInterval(() => {
+    const dur = onScreen();
+    if (!since || dur < next) return;
+    send({ t: 'ping', dur });
+    next = EARLY.find((t) => t > dur) ?? (Math.floor(dur / PING_EVERY) + 1) * PING_EVERY;
+  }, 5000);
   const leave = () => {
     if (!since) return;
     shown = onScreen(); since = 0; hiddenAt = Date.now();

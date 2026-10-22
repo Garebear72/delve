@@ -73,7 +73,7 @@ Key flows: tabs/features unlock progressively (Battle after building a Barracks;
 
 ## Visitor stats (owner only)
 
-- `src/cloud/visits.ts` posts a `start` when the game opens and a `ping` (seconds on screen) every 2 min and on hide/pagehide (sendBeacon) to the Supabase Edge Function `visit` (`supabase/functions/visit/index.ts`). A return after 30+ min hidden starts a new visit. Off in dev unless the URL has `?track`.
+- `src/cloud/visits.ts` posts a `start` when the game opens and a `ping` (seconds on screen) at 10 s, 30 s, 1 min, then every 2 min, and on hide/pagehide (sendBeacon) to the Supabase Edge Function `visit` (`supabase/functions/visit/index.ts`). A return after 30+ min hidden starts a new visit. Off in dev unless the URL has `?track`.
 - The function adds IP (`x-forwarded-for`) and location (ip-api.com, fallback ipwho.is) and writes `public.visits` with the service role. Schema/RLS: `supabase/visits.sql` — nobody can write through the public API; only the account `garebear` (`is_delve_admin()`, `ADMIN_USER` in `config.ts`) can read. Rows are kept forever. The function must be deployed with JWT verification **off** (the game calls it without a token).
 - `admin.html` (+ `src/admin/`) is the log viewer: search, filters, group by IP, CSV export. It's a second Vite entry (`vite.config.ts`); `admin.html?fake` in dev shows sample rows. The Menu shows a "Visitor log" link when signed in as the admin.
 
