@@ -10,6 +10,7 @@ import { checkForUpdate } from './game/update';
 import { refresh, store } from './game/store';
 import { CombatView } from './render/combat';
 import { bindSounds } from './audio/hooks';
+import { prefs } from './ui/prefs';
 import { startCloud } from './cloud';
 import { startVisitLog } from './cloud/visits';
 import { arcade, arcadeCanvas, cloudUI, battleCanvas, buildShell, createMine, frameUI, mine, pipCanvas, render, showOffline, ui } from './ui/ui';
@@ -26,7 +27,10 @@ startCloud(cloudUI).catch(() => { /* offline or not configured: the game plays o
 startVisitLog();
 
 const combat = new CombatView();
-bindSounds(() => ui.tab === 'battle');
+// Combat sounds: whenever any battle view is on screen (Battle tab, mini window, PC strip/column), or per the Menu setting.
+bindSounds(() => prefs.battleSound === 'off' ? false
+  : prefs.battleSound === 'tab' ? battleCanvas() !== null
+  : (battleCanvas() ?? pipCanvas()) !== null);
 let last = performance.now();
 let uiTimer = 0;
 let saveTimer = 0;

@@ -502,6 +502,7 @@ function act(name: string, arg: string) {
     }
     case 'vibrate': prefs.vibrate = !prefs.vibrate; savePrefs(); if (prefs.vibrate) navigator.vibrate?.(20); break;
     case 'sound': prefs.sound = !prefs.sound; savePrefs(); unlockAudio(); sfx('good'); break;
+    case 'battleSound': prefs.battleSound = arg as 'shown' | 'tab' | 'off'; savePrefs(); break;
     case 'volume': prefs.volume = Number(arg); savePrefs(); setVolume(prefs.volume); sfx('coin'); break;
     // skills
     case 'skillTree': ui.skillTree = arg as SkillId | 'run'; ui.skillNode = ''; break;

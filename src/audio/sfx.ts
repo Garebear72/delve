@@ -9,7 +9,8 @@ const lastAt: Record<string, number> = {};
 
 /** Browsers only allow audio after a user gesture; call this from any tap. */
 export function unlockAudio() {
-  if (ctx) { if (ctx.state === 'suspended') ctx.resume().catch(() => {}); return; }
+  // Phones pause audio in two ways ("suspended", and "interrupted" e.g. by a call or another app); resume from either.
+  if (ctx) { if (ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume().catch(() => {}); return; }
   const AC = window.AudioContext ?? (window as any).webkitAudioContext;
   if (!AC) return;
   ctx = new AC();

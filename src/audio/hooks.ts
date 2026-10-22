@@ -1,4 +1,4 @@
-// Connects game events to sound effects. Combat sounds only play while the Battle tab is open.
+// Connects game events to sound effects. Combat sounds play while a battle view is on screen (see Menu → Battle sounds).
 import { BIOMES } from '../data/defs';
 import { on } from '../game/events';
 import { sfx, unlockAudio } from './sfx';
@@ -8,6 +8,8 @@ export function bindSounds(battleVisible: () => boolean) {
   // (pointerup / touchend / click), not pointerdown, so listen to all of them; each also resumes audio
   // if the phone suspended it.
   for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) addEventListener(ev, unlockAudio, { capture: true, passive: true });
+  // Coming back to the game: try to wake audio the phone paused while you were away.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) unlockAudio(); });
 
   on('tap', (e: { combo: number; crit: boolean }) => sfx(e.crit ? 'crit' : 'tap', e.combo));
   on('tapBlocked', () => sfx('blocked'));
