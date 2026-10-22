@@ -70,6 +70,21 @@ export function buildShell() {
   $('arcadeBack').addEventListener('click', () => openGame(null));
   $('strip').addEventListener('click', () => openTab('battle'));
   bindKeys();
+  // Volume slider (Menu): live while dragging, saved when let go.
+  document.addEventListener('input', (e) => {
+    const el = e.target as HTMLInputElement;
+    if (el.id !== 'volumeSlider') return;
+    prefs.volume = Number(el.value) / 100;
+    setVolume(prefs.volume);
+    const label = document.getElementById('volumeLabel');
+    if (label) label.textContent = el.value;
+  });
+  document.addEventListener('change', (e) => {
+    if ((e.target as HTMLElement).id !== 'volumeSlider') return;
+    savePrefs();
+    unlockAudio();
+    sfx('coin');
+  });
   addEventListener('resize', () => { if (applyLayout()) onLayoutChange(); });
   applyLayout();
   onLayoutChange();

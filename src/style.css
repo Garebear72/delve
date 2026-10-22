@@ -373,3 +373,4 @@ body.docked .toast.out { transform: translateX(12px); }
 .btn.choice { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; white-space: normal; padding: 12px; }
 .cloudchip.error { background: #6b2a2a; }
 .cloudchip.busy { opacity: .75; }
+.slider { width: 100%; margin: 10px 0 4px; accent-color: var(--gold); height: 28px; cursor: pointer; }
